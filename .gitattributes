@@ -1,3 +1,4 @@
 *.bat eol=crlf encoding=cp932
 *.py eol=lf
 *.cfg eol=lf
+*.h5 filter=lfs diff=lfs merge=lfs -text

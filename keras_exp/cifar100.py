@@ -92,6 +92,8 @@ def run(result_dir: pathlib.Path, logger):
             X_train, y_train, batch_size=BATCH_SIZE, epochs=MAX_EPOCH,
             validation_data=(X_test, y_test), callbacks=callbacks)
 
+    model.save(str(result_dir.joinpath('model.h5')))
+
     score = model.evaluate(X_test, y_test, batch_size=BATCH_SIZE)
     logger.info('Test loss:     {}'.format(score[0]))
     logger.info('Test accuracy: {}'.format(score[1]))
