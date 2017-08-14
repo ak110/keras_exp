@@ -8,9 +8,9 @@ import better_exceptions
 
 import numpy as np
 
-import package.cifar10
-import package.cifar100
-import package.mnist
+import keras_exp.cifar10
+import keras_exp.cifar100
+import keras_exp.mnist
 import pytoolkit as tk
 
 
@@ -41,11 +41,11 @@ def _main():
     with tk.dl.session():
         start_time = time.time()
         if args.mode == 'mnist':
-            package.mnist.run(result_dir, logger)
+            keras_exp.mnist.run(result_dir, logger)
         elif args.mode == 'cifar10':
-            package.cifar10.run(result_dir, logger)
+            keras_exp.cifar10.run(result_dir, logger)
         elif args.mode == 'cifar100':
-            package.cifar100.run(result_dir, logger)
+            keras_exp.cifar100.run(result_dir, logger)
         else:
             assert False
         elapsed_time = time.time() - start_time
