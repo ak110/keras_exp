@@ -2,48 +2,55 @@
 import pathlib
 
 import numpy as np
+import sklearn.metrics
+
 import pytoolkit as tk
 
 BATCH_SIZE = 100
-MAX_EPOCH = 100
+MAX_EPOCH = 300
 DATA_AUGMENTATION = True
 
 
-def create_model(nb_classes: int):
+def create_model(nb_classes: int, input_shape: tuple):
     import keras
     import keras.backend as K
 
-    def conv(*args, **kargs):
-        def _t(x):
-            x = keras.layers.Conv2D(*args, **kargs, use_bias=False)(x)
-            x = keras.layers.BatchNormalization()(x)
-            x = keras.layers.ELU()(x)
-            return x
-        return _t
+    def conv(x, *args, **kargs):
+        x = keras.layers.BatchNormalization()(x)
+        x = keras.layers.ELU()(x)
+        x = keras.layers.Conv2D(*args, **kargs, use_bias=False)(x)
+        return x
+
+    def conv2(x, nb_filter):
+        x = conv(x, nb_filter // 4, (1, 1), padding='same')
+        x = conv(x, nb_filter, (3, 3), padding='same')
+        return x
 
     def block(x, nb_filter):
-        x0 = x = conv(nb_filter // 2, (1, 1), padding='same')(x)
-        x1 = x = conv(nb_filter // 2, (3, 3), padding='same')(x)
-        x2 = x = conv(nb_filter // 2, (3, 3), padding='same')(x)
-        x3 = x = conv(nb_filter // 2, (3, 3), padding='same')(x)
+        x0 = x
+        x1 = x = conv2(x, nb_filter)
+        x2 = x = conv2(x, nb_filter)
+        x3 = x = conv2(x, nb_filter)
         x = keras.layers.Concatenate()([x0, x1, x2, x3])
-        x = conv(nb_filter, (1, 1), padding='same')(x)
+        x = conv(x, nb_filter, (1, 1), padding='same')
         return x
 
     def ds(x):
         filters = K.int_shape(x)[-1]
         return keras.layers.Concatenate()([
             keras.layers.MaxPooling2D()(x),
-            conv(filters, (3, 3), strides=(2, 2), padding='same')(x),
+            conv(x, filters, (3, 3), strides=(2, 2), padding='same'),
         ])
 
-    x = inp = keras.layers.Input((28, 28, 1))
-
+    x = inp = keras.layers.Input(input_shape)
+    x = keras.layers.Conv2D(64, (3, 3), padding='same')(x)
     x = block(x, 128)
-    x = ds(x)  # 14
+    x = ds(x)
     x = block(x, 256)
-    x = ds(x)  # 7
+    x = ds(x)
     x = block(x, 512)
+    x = keras.layers.BatchNormalization()(x)
+    x = keras.layers.ELU()(x)
     x = keras.layers.GlobalAveragePooling2D()(x)
     x = keras.layers.Dense(nb_classes, activation='softmax')(x)
 
@@ -63,9 +70,10 @@ def run(result_dir: pathlib.Path, logger):
     y_train = keras.utils.to_categorical(y_train, nb_classes)
     y_test = keras.utils.to_categorical(y_test, nb_classes)
 
-    model = create_model(nb_classes)
+    model = create_model(nb_classes, (28, 28, 1))
     model.summary(print_fn=logger.debug)
-    keras.utils.plot_model(model, to_file=str(result_dir.joinpath('model.png')), show_shapes=True)
+    keras.utils.plot_model(model, str(result_dir.joinpath('model.png')), show_shapes=True)
+    tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))
 
     callbacks = []
     callbacks.append(tk.dl.my_callback_factory()(result_dir, base_lr=0.1))
@@ -97,3 +105,7 @@ def run(result_dir: pathlib.Path, logger):
     score = model.evaluate(X_test, y_test, batch_size=BATCH_SIZE)
     logger.info('Test loss:     {}'.format(score[0]))
     logger.info('Test accuracy: {}'.format(score[1]))
+
+    pred = model.predict(X_test, batch_size=BATCH_SIZE)
+    cm = sklearn.metrics.confusion_matrix(y_test.argmax(axis=-1), pred.argmax(axis=-1))
+    tk.ml.plot_cm(cm, result_dir.joinpath('confusion_matrix.png'))
