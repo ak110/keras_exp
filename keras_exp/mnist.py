@@ -22,7 +22,7 @@ def create_model(nb_classes: int, input_shape: tuple):
         return x
 
     def conv2(x, nb_filter):
-        x = conv(x, nb_filter // 4, (1, 1), padding='same')
+        x = conv(x, nb_filter // 4, (1, 1))
         x = conv(x, nb_filter, (3, 3), padding='same')
         return x
 
@@ -32,7 +32,7 @@ def create_model(nb_classes: int, input_shape: tuple):
         x2 = x = conv2(x, nb_filter)
         x3 = x = conv2(x, nb_filter)
         x = keras.layers.Concatenate()([x0, x1, x2, x3])
-        x = conv(x, nb_filter, (1, 1), padding='same')
+        x = conv(x, nb_filter, (1, 1))
         return x
 
     def ds(x):
@@ -63,6 +63,7 @@ def run(result_dir: pathlib.Path, logger):
     import keras
     import keras.preprocessing.image
 
+    input_shape = (28, 28, 1)
     nb_classes = 10
     (X_train, y_train), (X_test, y_test) = keras.datasets.mnist.load_data()
     X_train = X_train.reshape(X_train.shape + (1,)).astype(np.float32) / 255
@@ -70,7 +71,7 @@ def run(result_dir: pathlib.Path, logger):
     y_train = keras.utils.to_categorical(y_train, nb_classes)
     y_test = keras.utils.to_categorical(y_test, nb_classes)
 
-    model = create_model(nb_classes, (28, 28, 1))
+    model = create_model(nb_classes, input_shape)
     model.summary(print_fn=logger.debug)
     keras.utils.plot_model(model, str(result_dir.joinpath('model.png')), show_shapes=True)
     tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))
