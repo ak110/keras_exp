@@ -21,41 +21,40 @@ def create_model(nb_classes: int, input_shape: tuple):
         x = keras.layers.Conv2D(*args, **kargs, use_bias=False)(x)
         return x
 
+    def lc(x, *args, **kargs):
+        x = keras.layers.BatchNormalization()(x)
+        x = keras.layers.ELU()(x)
+        x = keras.layers.local.LocallyConnected2D(*args, **kargs)(x)
+        return x
+
     def conv2(x, nb_filter):
-        x = conv(x, nb_filter // 4, (1, 1))
+        x = conv(x, nb_filter // 2, (1, 1))
         x = conv(x, nb_filter, (3, 3), padding='same')
         return x
 
     def block(x, nb_filter):
-        x0 = x
-        x1 = x = conv2(x, nb_filter)
-        x2 = x = conv2(x, nb_filter)
-        x3 = x = conv2(x, nb_filter)
-        x = keras.layers.Concatenate()([x0, x1, x2, x3])
-        x = conv(x, nb_filter, (1, 1))
+        x = conv2(x, nb_filter)
         return x
 
     def ds(x):
-        filters = K.int_shape(x)[-1]
-        return keras.layers.Concatenate()([
-            keras.layers.MaxPooling2D()(x),
-            conv(x, filters, (3, 3), strides=(2, 2), padding='same'),
-        ])
+        x = keras.layers.MaxPooling2D()(x)
+        return x
 
     x = inp = keras.layers.Input(input_shape)
     x = keras.layers.Conv2D(64, (3, 3), padding='same')(x)
     x = block(x, 128)
     x = ds(x)
-    x = block(x, 256)
+    x = block(x, 128)
     x = ds(x)
-    x = block(x, 512)
+    x = conv(x, 32, (1, 1))
+    x = lc(x, 32, (3, 3))
     x = keras.layers.BatchNormalization()(x)
     x = keras.layers.ELU()(x)
-    x = keras.layers.GlobalAveragePooling2D()(x)
+    x = keras.layers.Flatten()(x)
     x = keras.layers.Dense(nb_classes, activation='softmax')(x)
 
     model = keras.models.Model(inputs=inp, outputs=x)
-    model.compile(keras.optimizers.SGD(momentum=0.9, nesterov=True), 'categorical_crossentropy', ['acc'])
+    model.compile('nadam', 'categorical_crossentropy', ['acc'])
     return model
 
 
@@ -77,7 +76,7 @@ def run(result_dir: pathlib.Path, logger):
     tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))
 
     callbacks = []
-    callbacks.append(tk.dl.my_callback_factory()(result_dir, base_lr=0.1))
+    callbacks.append(tk.dl.my_callback_factory()(result_dir, base_lr=1e-3))
     callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'loss'))
     callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'acc'))
     # if K.backend() == 'tensorflow':
@@ -90,7 +89,7 @@ def run(result_dir: pathlib.Path, logger):
             shear_range=0.1,
             zoom_range=0.1,
             channel_shift_range=0,
-            horizontal_flip=True,
+            horizontal_flip=False,
             vertical_flip=False)
         model.fit_generator(
             datagen.flow(X_train, y_train, batch_size=BATCH_SIZE),
