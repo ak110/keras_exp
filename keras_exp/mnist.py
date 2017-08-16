@@ -89,7 +89,7 @@ def run(result_dir: pathlib.Path, logger):
             shear_range=0.1,
             zoom_range=0.1,
             channel_shift_range=0,
-            horizontal_flip=True,
+            horizontal_flip=False,
             vertical_flip=False)
         model.fit_generator(
             datagen.flow(X_train, y_train, batch_size=BATCH_SIZE),
