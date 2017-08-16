@@ -58,7 +58,7 @@ def create_model(nb_classes: int, input_shape: tuple):
     return model
 
 
-def run(result_dir: pathlib.Path, logger):
+def run(logger, result_dir: pathlib.Path):
     import keras
     import keras.preprocessing.image
 

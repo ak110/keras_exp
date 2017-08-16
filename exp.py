@@ -41,11 +41,11 @@ def _main():
     with tk.dl.session():
         start_time = time.time()
         if args.mode == 'mnist':
-            keras_exp.mnist.run(result_dir, logger)
+            keras_exp.mnist.run(logger, result_dir)
         elif args.mode == 'cifar10':
-            keras_exp.cifar10.run(result_dir, logger)
+            keras_exp.cifar10.run(logger, result_dir)
         elif args.mode == 'cifar100':
-            keras_exp.cifar100.run(result_dir, logger)
+            keras_exp.cifar100.run(logger, result_dir)
         else:
             assert False
         elapsed_time = time.time() - start_time
