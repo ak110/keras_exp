@@ -48,10 +48,9 @@ def create_model(nb_classes: int, input_shape: tuple):
     x = ds(x)
     x = block(x, 256)
     x = ds(x)
-    x = block(x, 512)
+    x = keras.layers.Flatten()(x)
     x = keras.layers.BatchNormalization()(x)
     x = keras.layers.ELU()(x)
-    x = keras.layers.GlobalAveragePooling2D()(x)
     x = keras.layers.Dense(nb_classes, activation='softmax')(x)
 
     model = keras.models.Model(inputs=inp, outputs=x)
