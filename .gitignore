@@ -1,5 +1,11 @@
 __pycache__/
 .vscode
 
-# ��Ɨp
+# 作業用
 *___*
+
+# 容量が大きいものは必要ならまた作ることにする。(保存は一応しておく)
+model.h5
+model.png
+model.params.png
+batchlog.tsv
