@@ -11,6 +11,7 @@ import numpy as np
 import keras_exp.cifar10
 import keras_exp.cifar100
 import keras_exp.mnist
+import keras_exp.voc2007od
 import pytoolkit as tk
 
 
@@ -18,13 +19,13 @@ def _main():
     import matplotlib as mpl
     mpl.use('Agg')
 
-    better_exceptions.MAX_LENGTH = None
+    better_exceptions.MAX_LENGTH = 128
 
     parser = argparse.ArgumentParser(description='Keras実験用コード置き場')
     parser.add_argument('mode', help='動作モード',
                         nargs='?',
                         default='cifar100',
-                        choices=['mnist', 'cifar10', 'cifar100'])
+                        choices=['mnist', 'cifar10', 'cifar100', 'voc2007od'])
     args = parser.parse_args()
 
     base_dir = pathlib.Path(os.path.realpath(__file__)).parent
@@ -46,6 +47,8 @@ def _main():
             keras_exp.cifar10.run(logger, result_dir)
         elif args.mode == 'cifar100':
             keras_exp.cifar100.run(logger, result_dir)
+        elif args.mode == 'voc2007od':
+            keras_exp.voc2007od.run(logger, result_dir, base_dir.joinpath('data'))
         else:
             assert False
         elapsed_time = time.time() - start_time
