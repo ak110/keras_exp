@@ -55,7 +55,7 @@ def create_model(nb_classes: int, input_shape: tuple):
     x = keras.layers.Dense(nb_classes, activation='softmax')(x)
 
     model = keras.models.Model(inputs=inp, outputs=x)
-    model.compile(keras.optimizers.SGD(momentum=0.9, nesterov=True), 'categorical_crossentropy', ['acc'])
+    model.compile('nadam', 'categorical_crossentropy', ['acc'])
     return model
 
 
@@ -77,7 +77,7 @@ def run(result_dir: pathlib.Path, logger):
     tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))
 
     callbacks = []
-    callbacks.append(tk.dl.my_callback_factory()(result_dir, base_lr=0.1))
+    callbacks.append(tk.dl.my_callback_factory()(result_dir, base_lr=1e-3))
     callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'loss'))
     callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'acc'))
     # if K.backend() == 'tensorflow':
