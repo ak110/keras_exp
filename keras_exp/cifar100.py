@@ -1,7 +1,6 @@
 """CIFAR100."""
 import pathlib
 
-import numpy as np
 import sklearn.metrics
 
 import pytoolkit as tk
@@ -97,6 +96,8 @@ def run(logger, result_dir: pathlib.Path):
     logger.info('Test accuracy: {}'.format(score[1]))
     logger.info('Test error:    {}'.format(1 - score[1]))
 
-    pred = model.predict(X_test, batch_size=BATCH_SIZE)
+    pred = model.predict_generator(
+        gen.flow(X_test, batch_size=BATCH_SIZE),
+        gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE))
     cm = sklearn.metrics.confusion_matrix(y_test.argmax(axis=-1), pred.argmax(axis=-1))
     tk.ml.plot_cm(cm, result_dir.joinpath('confusion_matrix.png'))
