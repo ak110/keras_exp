@@ -19,25 +19,29 @@ def create_model(nb_classes: int, input_shape: tuple):
         x = keras.layers.Conv2D(*args, **kargs, use_bias=False)(x)
         return x
 
-    def conv2(x, nb_filter):
-        x = conv(x, nb_filter // 4, (1, 1))
-        x = conv(x, nb_filter, (3, 3), padding='same')
+    def conv2(x, filters):
+        x = conv(x, filters // 2, (3, 3), padding='same')
+        x = conv(x, filters, (3, 3), padding='same')
         return x
 
-    def block(x, nb_filter):
+    def block(x, filters):
         x0 = x
-        x1 = x = conv2(x, nb_filter)
-        x2 = x = conv2(x, nb_filter)
-        x3 = x = conv2(x, nb_filter)
-        x = keras.layers.Concatenate()([x0, x1, x2, x3])
-        x = conv(x, nb_filter, (1, 1))
+        x1 = x = conv2(x, filters)
+        x2 = x = conv2(x, filters)
+        x3 = x = conv2(x, filters)
+        x = keras.layers.Add()([
+            conv(x0, filters, (1, 1)),
+            conv(x1, filters, (1, 1)),
+            conv(x2, filters, (1, 1)),
+            conv(x3, filters, (1, 1)),
+        ])
         return x
 
     def ds(x):
         filters = K.int_shape(x)[-1]
         return keras.layers.Concatenate()([
             keras.layers.MaxPooling2D()(x),
-            conv(x, filters, (3, 3), strides=(2, 2), padding='same'),
+            conv(conv(x, filters // 4, (1, 1)), filters, (3, 3), strides=(2, 2), padding='same'),
         ])
 
     x = inp = keras.layers.Input(input_shape)
