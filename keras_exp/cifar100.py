@@ -1,6 +1,7 @@
 """CIFAR100."""
 import pathlib
 
+import numpy as np
 import sklearn.metrics
 
 import pytoolkit as tk
@@ -13,22 +14,24 @@ def create_model(nb_classes: int, input_shape: tuple):
     import keras
     import keras.backend as K
 
-    def conv(x, *args, **kargs):
+    def conv(x, *args, dropout=None, **kargs):
         x = keras.layers.BatchNormalization()(x)
         x = keras.layers.ELU()(x)
+        if dropout:
+            x = keras.layers.Dropout(dropout)(x)
         x = keras.layers.Conv2D(*args, **kargs, use_bias=False)(x)
         return x
 
-    def conv2(x, filters):
-        x = conv(x, filters // 2, (3, 3), padding='same')
-        x = conv(x, filters, (3, 3), padding='same')
+    def branch(x, filters):
+        x = conv(x, filters // 4, (1, 1), padding='same')
+        x = conv(x, filters, (3, 3), padding='same', dropout=0.25)
         return x
 
     def block(x, filters):
         x0 = x
-        x1 = x = conv2(x, filters)
-        x2 = x = conv2(x, filters)
-        x3 = x = conv2(x, filters)
+        x1 = x = branch(x, filters)
+        x2 = x = branch(x, filters)
+        x3 = x = branch(x, filters)
         x = keras.layers.Add()([
             conv(x0, filters, (1, 1)),
             conv(x1, filters, (1, 1)),
@@ -39,13 +42,15 @@ def create_model(nb_classes: int, input_shape: tuple):
 
     def ds(x):
         filters = K.int_shape(x)[-1]
+        sq = conv(x, filters // 4, (1, 1))
         return keras.layers.Concatenate()([
             keras.layers.MaxPooling2D()(x),
-            conv(conv(x, filters // 4, (1, 1)), filters, (3, 3), strides=(2, 2), padding='same'),
+            conv(sq, filters, (3, 3), strides=(2, 2), padding='same'),
         ])
 
     x = inp = keras.layers.Input(input_shape)
     x = keras.layers.Conv2D(64, (3, 3), padding='same')(x)
+    x = conv(x, 128, (3, 3), padding='same')
     x = block(x, 128)
     x = ds(x)
     x = block(x, 256)
