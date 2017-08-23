@@ -1,7 +1,6 @@
 """CIFAR100."""
 import pathlib
 
-import numpy as np
 import sklearn.metrics
 
 import pytoolkit as tk
@@ -14,48 +13,49 @@ def create_model(nb_classes: int, input_shape: tuple):
     import keras
     import keras.backend as K
 
-    def conv(x, *args, dropout=None, **kargs):
-        x = keras.layers.BatchNormalization()(x)
-        x = keras.layers.ELU()(x)
+    def conv(x, *args, dropout=None, name=None, **kargs):
+        assert name is not None
+        x = keras.layers.BatchNormalization(name=name + 'bn')(x)
+        x = keras.layers.ELU(name=name + 'act')(x)
         if dropout:
-            x = keras.layers.Dropout(dropout)(x)
-        x = keras.layers.Conv2D(*args, **kargs, use_bias=False)(x)
+            x = keras.layers.Dropout(dropout, name=name + 'do')(x)
+        x = keras.layers.Conv2D(*args, **kargs, use_bias=False, name=name)(x)
         return x
 
-    def branch(x, filters):
-        x = conv(x, filters // 4, (1, 1), padding='same')
-        x = conv(x, filters, (3, 3), padding='same', dropout=0.25)
+    def branch(x, filters, name):
+        x = conv(x, filters // 2, (1, 1), padding='same', name=name + '_sq')
+        x = conv(x, filters, (3, 3), padding='same', dropout=0.25, name=name + '_ex')
         return x
 
-    def block(x, filters):
+    def block(x, filters, name):
         x0 = x
-        x1 = x = branch(x, filters)
-        x2 = x = branch(x, filters)
-        x3 = x = branch(x, filters)
-        x = keras.layers.Add()([
-            conv(x0, filters, (1, 1)),
-            conv(x1, filters, (1, 1)),
-            conv(x2, filters, (1, 1)),
-            conv(x3, filters, (1, 1)),
-        ])
+        x1 = x = branch(x, filters, name=name + '_b1')
+        x2 = x = branch(x, filters, name=name + '_b2')
+        x3 = x = branch(x, filters, name=name + '_b3')
+        x4 = x = branch(x, filters, name=name + '_b4')
+        x = keras.layers.Concatenate()([x1, x2, x3, x4])
+        x = conv(x, filters, (1, 1), name=name + '_mixed')
+        x = keras.layers.Add()([x0, x])
         return x
 
-    def ds(x):
+    def ds(x, name):
         filters = K.int_shape(x)[-1]
-        sq = conv(x, filters // 4, (1, 1))
-        return keras.layers.Concatenate()([
-            keras.layers.MaxPooling2D()(x),
-            conv(sq, filters, (3, 3), strides=(2, 2), padding='same'),
-        ])
+
+        mp = keras.layers.MaxPooling2D()(x)
+
+        cv = conv(x, filters // 4, (1, 1), name=name + '_sq')
+        cv = conv(cv, filters, (3, 3), strides=(2, 2), padding='same', name=name + '_ds')
+
+        x = keras.layers.Concatenate()([mp, cv])
+        return x
 
     x = inp = keras.layers.Input(input_shape)
-    x = keras.layers.Conv2D(64, (3, 3), padding='same')(x)
-    x = conv(x, 128, (3, 3), padding='same')
-    x = block(x, 128)
-    x = ds(x)
-    x = block(x, 256)
-    x = ds(x)
-    x = block(x, 512)
+    x = keras.layers.Conv2D(128, (3, 3), padding='same')(x)
+    x = block(x, 128, name='stage1_block')
+    x = ds(x, name='stage1_ds')
+    x = block(x, 256, name='stage2_block')
+    x = ds(x, name='stage2_ds')
+    x = block(x, 512, name='stage3_block')
     x = keras.layers.BatchNormalization()(x)
     x = keras.layers.ELU()(x)
     x = keras.layers.GlobalAveragePooling2D()(x)
