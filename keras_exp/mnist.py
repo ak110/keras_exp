@@ -13,7 +13,6 @@ DATA_AUGMENTATION = True
 
 def create_model(nb_classes: int, input_shape: tuple):
     import keras
-    import keras.backend as K
 
     def conv(x, *args, **kargs):
         x = keras.layers.BatchNormalization()(x)
@@ -21,33 +20,20 @@ def create_model(nb_classes: int, input_shape: tuple):
         x = keras.layers.Conv2D(*args, **kargs, use_bias=False)(x)
         return x
 
-    def lc(x, *args, **kargs):
-        x = keras.layers.BatchNormalization()(x)
-        x = keras.layers.ELU()(x)
-        x = keras.layers.local.LocallyConnected2D(*args, **kargs)(x)
-        return x
-
-    def conv2(x, nb_filter):
-        x = conv(x, nb_filter // 2, (1, 1))
-        x = conv(x, nb_filter, (3, 3), padding='same')
-        return x
-
-    def block(x, nb_filter):
-        x = conv2(x, nb_filter)
-        return x
-
     def ds(x):
         x = keras.layers.MaxPooling2D()(x)
         return x
 
     x = inp = keras.layers.Input(input_shape)
-    x = keras.layers.Conv2D(64, (3, 3), padding='same')(x)
-    x = block(x, 128)
+    x = keras.layers.Conv2D(32, (3, 3), padding='same')(x)
+    x = conv(x, 32, (3, 3), padding='same')
+    x = conv(x, 32, (3, 3), padding='same')
     x = ds(x)
-    x = block(x, 128)
+    x = conv(x, 32, (3, 3), padding='same')
+    x = conv(x, 32, (3, 3), padding='same')
     x = ds(x)
-    x = conv(x, 32, (1, 1))
-    x = lc(x, 32, (3, 3))
+    x = conv(x, 32, (3, 3), padding='same')
+    x = conv(x, 32, (3, 3), padding='same')
     x = keras.layers.BatchNormalization()(x)
     x = keras.layers.ELU()(x)
     x = keras.layers.Flatten()(x)
