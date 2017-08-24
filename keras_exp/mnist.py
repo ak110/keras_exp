@@ -1,4 +1,4 @@
-"""CIFAR100."""
+"""MNIST."""
 import pathlib
 
 import numpy as np
@@ -11,29 +11,29 @@ MAX_EPOCH = 300
 DATA_AUGMENTATION = True
 
 
-def create_model(nb_classes: int, input_shape: tuple):
+def _create_model(nb_classes: int, input_shape: tuple):
     import keras
 
-    def conv(x, *args, **kargs):
+    def _conv(x, *args, **kargs):
         x = keras.layers.BatchNormalization()(x)
         x = keras.layers.ELU()(x)
         x = keras.layers.Conv2D(*args, **kargs, use_bias=False)(x)
         return x
 
-    def ds(x):
+    def _ds(x):
         x = keras.layers.MaxPooling2D()(x)
         return x
 
     x = inp = keras.layers.Input(input_shape)
     x = keras.layers.Conv2D(32, (3, 3), padding='same')(x)
-    x = conv(x, 32, (3, 3), padding='same')
-    x = conv(x, 32, (3, 3), padding='same')
-    x = ds(x)
-    x = conv(x, 32, (3, 3), padding='same')
-    x = conv(x, 32, (3, 3), padding='same')
-    x = ds(x)
-    x = conv(x, 32, (3, 3), padding='same')
-    x = conv(x, 32, (3, 3), padding='same')
+    x = _conv(x, 32, (3, 3), padding='same')
+    x = _conv(x, 32, (3, 3), padding='same')
+    x = _ds(x)
+    x = _conv(x, 32, (3, 3), padding='same')
+    x = _conv(x, 32, (3, 3), padding='same')
+    x = _ds(x)
+    x = _conv(x, 32, (3, 3), padding='same')
+    x = _conv(x, 32, (3, 3), padding='same')
     x = keras.layers.BatchNormalization()(x)
     x = keras.layers.ELU()(x)
     x = keras.layers.Flatten()(x)
@@ -45,6 +45,7 @@ def create_model(nb_classes: int, input_shape: tuple):
 
 
 def run(logger, result_dir: pathlib.Path):
+    """実行。"""
     import keras
     import keras.preprocessing.image
 
@@ -56,7 +57,7 @@ def run(logger, result_dir: pathlib.Path):
     y_train = keras.utils.to_categorical(y_train, nb_classes)
     y_test = keras.utils.to_categorical(y_test, nb_classes)
 
-    model = create_model(nb_classes, input_shape)
+    model = _create_model(nb_classes, input_shape)
     model.summary(print_fn=logger.debug)
     keras.utils.plot_model(model, str(result_dir.joinpath('model.png')), show_shapes=True)
     tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))

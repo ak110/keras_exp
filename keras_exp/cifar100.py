@@ -9,11 +9,11 @@ BATCH_SIZE = 100
 MAX_EPOCH = 300
 
 
-def create_model(nb_classes: int, input_shape: tuple):
+def _create_model(nb_classes: int, input_shape: tuple):
     import keras
     import keras.backend as K
 
-    def conv(x, *args, dropout=None, name=None, **kargs):
+    def _conv(x, *args, dropout=None, name=None, **kargs):
         assert name is not None
         x = keras.layers.BatchNormalization(name=name + 'bn')(x)
         x = keras.layers.ELU(name=name + 'act')(x)
@@ -22,40 +22,40 @@ def create_model(nb_classes: int, input_shape: tuple):
         x = keras.layers.Conv2D(*args, **kargs, use_bias=False, name=name)(x)
         return x
 
-    def branch(x, filters, name):
-        x = conv(x, filters // 2, (1, 1), padding='same', name=name + '_sq')
-        x = conv(x, filters, (3, 3), padding='same', dropout=0.25, name=name + '_ex')
+    def _branch(x, filters, name):
+        x = _conv(x, filters // 2, (1, 1), padding='same', name=name + '_sq')
+        x = _conv(x, filters, (3, 3), padding='same', dropout=0.25, name=name + '_ex')
         return x
 
-    def block(x, filters, name):
+    def _block(x, filters, name):
         x0 = x
-        x1 = x = branch(x, filters, name=name + '_b1')
-        x2 = x = branch(x, filters, name=name + '_b2')
-        x3 = x = branch(x, filters, name=name + '_b3')
-        x4 = x = branch(x, filters, name=name + '_b4')
+        x1 = x = _branch(x, filters, name=name + '_b1')
+        x2 = x = _branch(x, filters, name=name + '_b2')
+        x3 = x = _branch(x, filters, name=name + '_b3')
+        x4 = x = _branch(x, filters, name=name + '_b4')
         x = keras.layers.Concatenate()([x1, x2, x3, x4])
-        x = conv(x, filters, (1, 1), name=name + '_mixed')
+        x = _conv(x, filters, (1, 1), name=name + '_mixed')
         x = keras.layers.Add()([x0, x])
         return x
 
-    def ds(x, name):
+    def _ds(x, name):
         filters = K.int_shape(x)[-1]
 
         mp = keras.layers.MaxPooling2D()(x)
 
-        cv = conv(x, filters // 4, (1, 1), name=name + '_sq')
-        cv = conv(cv, filters, (3, 3), strides=(2, 2), padding='same', name=name + '_ds')
+        cv = _conv(x, filters // 4, (1, 1), name=name + '_sq')
+        cv = _conv(cv, filters, (3, 3), strides=(2, 2), padding='same', name=name + '_ds')
 
         x = keras.layers.Concatenate()([mp, cv])
         return x
 
     x = inp = keras.layers.Input(input_shape)
     x = keras.layers.Conv2D(128, (3, 3), padding='same')(x)
-    x = block(x, 128, name='stage1_block')
-    x = ds(x, name='stage1_ds')
-    x = block(x, 256, name='stage2_block')
-    x = ds(x, name='stage2_ds')
-    x = block(x, 512, name='stage3_block')
+    x = _block(x, 128, name='stage1_block')
+    x = _ds(x, name='stage1_ds')
+    x = _block(x, 256, name='stage2_block')
+    x = _ds(x, name='stage2_ds')
+    x = _block(x, 512, name='stage3_block')
     x = keras.layers.BatchNormalization()(x)
     x = keras.layers.ELU()(x)
     x = keras.layers.GlobalAveragePooling2D()(x)
@@ -67,6 +67,7 @@ def create_model(nb_classes: int, input_shape: tuple):
 
 
 def run(logger, result_dir: pathlib.Path):
+    """実行。"""
     import keras
     import keras.preprocessing.image
 
@@ -76,7 +77,7 @@ def run(logger, result_dir: pathlib.Path):
     y_train = keras.utils.to_categorical(y_train, nb_classes)
     y_test = keras.utils.to_categorical(y_test, nb_classes)
 
-    model = create_model(nb_classes, input_shape)
+    model = _create_model(nb_classes, input_shape)
     model.summary(print_fn=logger.debug)
     keras.utils.plot_model(model, str(result_dir.joinpath('model.png')), show_shapes=True)
     tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))

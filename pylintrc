@@ -1,0 +1,20 @@
+[MASTER]
+ignore=tests,tests_strict
+extension-pkg-whitelist=numpy,hyperopt
+
+[MESSAGES CONTROL]
+# C0103:Invalid attribute name
+disable=C0103
+    ,locally-disabled
+    ,too-many-instance-attributes
+    ,too-many-arguments
+    ,too-many-locals
+    ,len-as-condition
+    ,bare-except
+
+[FORMAT]
+max-line-length=256
+
+[TYPECHECK]
+ignored-modules=__init__,numpy
+ignored-classes=pathlib.PurePath

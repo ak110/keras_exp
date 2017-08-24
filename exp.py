@@ -4,8 +4,8 @@ import argparse
 import os
 import pathlib
 import time
-import better_exceptions
 
+import better_exceptions
 import numpy as np
 
 import keras_exp.cifar10

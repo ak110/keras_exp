@@ -1,4 +1,4 @@
-"""CIFAR100."""
+"""CIFAR10."""
 import pathlib
 
 import numpy as np
@@ -11,44 +11,44 @@ MAX_EPOCH = 300
 DATA_AUGMENTATION = True
 
 
-def create_model(nb_classes: int, input_shape: tuple):
+def _create_model(nb_classes: int, input_shape: tuple):
     import keras
     import keras.backend as K
 
-    def conv(x, *args, **kargs):
+    def _conv(x, *args, **kargs):
         x = keras.layers.BatchNormalization()(x)
         x = keras.layers.ELU()(x)
         x = keras.layers.Conv2D(*args, **kargs, use_bias=False)(x)
         return x
 
-    def conv2(x, nb_filter):
-        x = conv(x, nb_filter // 4, (1, 1))
-        x = conv(x, nb_filter, (3, 3), padding='same')
+    def _conv2(x, nb_filter):
+        x = _conv(x, nb_filter // 4, (1, 1))
+        x = _conv(x, nb_filter, (3, 3), padding='same')
         return x
 
-    def block(x, nb_filter):
+    def _block(x, nb_filter):
         x0 = x
-        x1 = x = conv2(x, nb_filter)
-        x2 = x = conv2(x, nb_filter)
-        x3 = x = conv2(x, nb_filter)
+        x1 = x = _conv2(x, nb_filter)
+        x2 = x = _conv2(x, nb_filter)
+        x3 = x = _conv2(x, nb_filter)
         x = keras.layers.Concatenate()([x0, x1, x2, x3])
-        x = conv(x, nb_filter, (1, 1))
+        x = _conv(x, nb_filter, (1, 1))
         return x
 
-    def ds(x):
+    def _ds(x):
         filters = K.int_shape(x)[-1]
         return keras.layers.Concatenate()([
             keras.layers.MaxPooling2D()(x),
-            conv(x, filters, (3, 3), strides=(2, 2), padding='same'),
+            _conv(x, filters, (3, 3), strides=(2, 2), padding='same'),
         ])
 
     x = inp = keras.layers.Input(input_shape)
     x = keras.layers.Conv2D(64, (3, 3), padding='same')(x)
-    x = block(x, 128)
-    x = ds(x)
-    x = block(x, 256)
-    x = ds(x)
-    x = block(x, 512)
+    x = _block(x, 128)
+    x = _ds(x)
+    x = _block(x, 256)
+    x = _ds(x)
+    x = _block(x, 512)
     x = keras.layers.BatchNormalization()(x)
     x = keras.layers.ELU()(x)
     x = keras.layers.GlobalAveragePooling2D()(x)
@@ -60,6 +60,7 @@ def create_model(nb_classes: int, input_shape: tuple):
 
 
 def run(logger, result_dir: pathlib.Path):
+    """実行。"""
     import keras
     import keras.preprocessing.image
 
@@ -71,7 +72,7 @@ def run(logger, result_dir: pathlib.Path):
     y_train = keras.utils.to_categorical(y_train, nb_classes)
     y_test = keras.utils.to_categorical(y_test, nb_classes)
 
-    model = create_model(nb_classes, input_shape)
+    model = _create_model(nb_classes, input_shape)
     model.summary(print_fn=logger.debug)
     keras.utils.plot_model(model, str(result_dir.joinpath('model.png')), show_shapes=True)
     tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))
