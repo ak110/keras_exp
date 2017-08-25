@@ -13,18 +13,17 @@ def _create_model(nb_classes: int, input_shape: tuple):
     import keras
     import keras.backend as K
 
-    def _conv(x, *args, dropout=None, name=None, **kargs):
+    def _conv(x, filters, kernel_size, name=None, **kargs):
         assert name is not None
-        if dropout:
-            x = keras.layers.Dropout(dropout, name=name + 'do')(x)
-        x = keras.layers.Conv2D(*args, **kargs, use_bias=False, name=name)(x)
+        x = keras.layers.Conv2D(filters, kernel_size, use_bias=False, name=name, **kargs)(x)
         x = keras.layers.BatchNormalization(name=name + 'bn')(x)
         x = keras.layers.ELU(name=name + 'act')(x)
         return x
 
     def _branch(x, filters, name):
         x = _conv(x, filters // 2, (1, 1), padding='same', name=name + '_sq')
-        x = _conv(x, filters, (3, 3), padding='same', dropout=0.25, name=name + '_ex')
+        x = keras.layers.Dropout(0.25, name=name + '_do')(x)
+        x = _conv(x, filters, (3, 3), padding='same', name=name + '_ex')
         return x
 
     def _block(x, filters, name):

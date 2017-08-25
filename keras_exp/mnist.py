@@ -14,10 +14,11 @@ DATA_AUGMENTATION = True
 def _create_model(nb_classes: int, input_shape: tuple):
     import keras
 
-    def _conv(x, *args, **kargs):
-        x = keras.layers.BatchNormalization()(x)
-        x = keras.layers.ELU()(x)
-        x = keras.layers.Conv2D(*args, **kargs, use_bias=False)(x)
+    def _conv(x, filters, kernel_size, name=None, **kargs):
+        assert name is not None
+        x = keras.layers.Conv2D(filters, kernel_size, use_bias=False, name=name, **kargs)(x)
+        x = keras.layers.BatchNormalization(name=name + 'bn')(x)
+        x = keras.layers.ELU(name=name + 'act')(x)
         return x
 
     def _ds(x):
@@ -25,17 +26,14 @@ def _create_model(nb_classes: int, input_shape: tuple):
         return x
 
     x = inp = keras.layers.Input(input_shape)
-    x = keras.layers.Conv2D(32, (3, 3), padding='same')(x)
-    x = _conv(x, 32, (3, 3), padding='same')
-    x = _conv(x, 32, (3, 3), padding='same')
+    x = _conv(x, 32, (3, 3), padding='same', name='conv1a')
+    x = _conv(x, 32, (3, 3), padding='same', name='conv1b')
     x = _ds(x)
-    x = _conv(x, 32, (3, 3), padding='same')
-    x = _conv(x, 32, (3, 3), padding='same')
+    x = _conv(x, 32, (3, 3), padding='same', name='conv2a')
+    x = _conv(x, 32, (3, 3), padding='same', name='conv2b')
     x = _ds(x)
-    x = _conv(x, 32, (3, 3), padding='same')
-    x = _conv(x, 32, (3, 3), padding='same')
-    x = keras.layers.BatchNormalization()(x)
-    x = keras.layers.ELU()(x)
+    x = _conv(x, 32, (3, 3), padding='same', name='conv3a')
+    x = _conv(x, 32, (3, 3), padding='same', name='conv3b')
     x = keras.layers.Flatten()(x)
     x = keras.layers.Dense(nb_classes, activation='softmax')(x)
 

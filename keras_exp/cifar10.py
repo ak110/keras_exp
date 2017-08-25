@@ -1,61 +1,65 @@
 """CIFAR10."""
 import pathlib
 
-import numpy as np
 import sklearn.metrics
 
 import pytoolkit as tk
 
 BATCH_SIZE = 100
 MAX_EPOCH = 300
-DATA_AUGMENTATION = True
 
 
 def _create_model(nb_classes: int, input_shape: tuple):
     import keras
     import keras.backend as K
 
-    def _conv(x, *args, **kargs):
-        x = keras.layers.BatchNormalization()(x)
-        x = keras.layers.ELU()(x)
-        x = keras.layers.Conv2D(*args, **kargs, use_bias=False)(x)
+    def _conv(x, filters, kernel_size, name=None, **kargs):
+        assert name is not None
+        x = keras.layers.Conv2D(filters, kernel_size, use_bias=False, name=name, **kargs)(x)
+        x = keras.layers.BatchNormalization(name=name + 'bn')(x)
+        x = keras.layers.ELU(name=name + 'act')(x)
         return x
 
-    def _conv2(x, nb_filter):
-        x = _conv(x, nb_filter // 4, (1, 1))
-        x = _conv(x, nb_filter, (3, 3), padding='same')
+    def _branch(x, filters, name):
+        x = _conv(x, filters // 2, (1, 1), padding='same', name=name + '_sq')
+        x = keras.layers.Dropout(0.25, name=name + '_do')(x)
+        x = _conv(x, filters, (3, 3), padding='same', name=name + '_ex')
         return x
 
-    def _block(x, nb_filter):
+    def _block(x, filters, name):
         x0 = x
-        x1 = x = _conv2(x, nb_filter)
-        x2 = x = _conv2(x, nb_filter)
-        x3 = x = _conv2(x, nb_filter)
-        x = keras.layers.Concatenate()([x0, x1, x2, x3])
-        x = _conv(x, nb_filter, (1, 1))
+        x1 = x = _branch(x, filters, name=name + '_b1')
+        x2 = x = _branch(x, filters, name=name + '_b2')
+        x3 = x = _branch(x, filters, name=name + '_b3')
+        x4 = x = _branch(x, filters, name=name + '_b4')
+        x = keras.layers.Concatenate()([x1, x2, x3, x4])
+        x = _conv(x, filters, (1, 1), name=name + '_mixed')
+        x = keras.layers.Add()([x0, x])
         return x
 
-    def _ds(x):
+    def _ds(x, name):
         filters = K.int_shape(x)[-1]
-        return keras.layers.Concatenate()([
-            keras.layers.MaxPooling2D()(x),
-            _conv(x, filters, (3, 3), strides=(2, 2), padding='same'),
-        ])
+
+        mp = keras.layers.MaxPooling2D()(x)
+
+        cv = _conv(x, filters // 4, (1, 1), name=name + '_sq')
+        cv = _conv(cv, filters, (3, 3), strides=(2, 2), padding='same', name=name + '_ds')
+
+        x = keras.layers.Concatenate()([mp, cv])
+        return x
 
     x = inp = keras.layers.Input(input_shape)
-    x = keras.layers.Conv2D(64, (3, 3), padding='same')(x)
-    x = _block(x, 128)
-    x = _ds(x)
-    x = _block(x, 256)
-    x = _ds(x)
-    x = _block(x, 512)
-    x = keras.layers.BatchNormalization()(x)
-    x = keras.layers.ELU()(x)
+    x = _conv(x, 128, (3, 3), padding='same', name='start')
+    x = _block(x, 128, name='stage1_block')
+    x = _ds(x, name='stage1_ds')
+    x = _block(x, 256, name='stage2_block')
+    x = _ds(x, name='stage2_ds')
+    x = _block(x, 512, name='stage3_block')
     x = keras.layers.GlobalAveragePooling2D()(x)
     x = keras.layers.Dense(nb_classes, activation='softmax')(x)
 
     model = keras.models.Model(inputs=inp, outputs=x)
-    model.compile(keras.optimizers.SGD(momentum=0.9, nesterov=True), 'categorical_crossentropy', ['acc'])
+    model.compile('nadam', 'categorical_crossentropy', ['acc'])
     return model
 
 
@@ -67,8 +71,6 @@ def run(logger, result_dir: pathlib.Path):
     input_shape = (32, 32, 3)
     nb_classes = 10
     (X_train, y_train), (X_test, y_test) = keras.datasets.cifar10.load_data()
-    X_train = X_train.astype(np.float32) / 255
-    X_test = X_test.astype(np.float32) / 255
     y_train = keras.utils.to_categorical(y_train, nb_classes)
     y_test = keras.utils.to_categorical(y_test, nb_classes)
 
@@ -78,36 +80,31 @@ def run(logger, result_dir: pathlib.Path):
     tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))
 
     callbacks = []
-    callbacks.append(tk.dl.my_callback_factory()(result_dir, base_lr=0.1))
+    callbacks.append(tk.dl.my_callback_factory()(result_dir, base_lr=1e-3))
     callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'loss'))
     callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'acc'))
     # if K.backend() == 'tensorflow':
     #     callbacks.append(keras.callbacks.TensorBoard())
-    if DATA_AUGMENTATION:
-        datagen = keras.preprocessing.image.ImageDataGenerator(
-            rotation_range=15,
-            width_shift_range=0.1,
-            height_shift_range=0.1,
-            shear_range=0.1,
-            zoom_range=0.1,
-            channel_shift_range=0,
-            horizontal_flip=True,
-            vertical_flip=False)
-        model.fit_generator(
-            datagen.flow(X_train, y_train, batch_size=BATCH_SIZE),
-            steps_per_epoch=X_train.shape[0] // BATCH_SIZE, epochs=MAX_EPOCH,
-            validation_data=(X_test, y_test), callbacks=callbacks)
-    else:
-        model.fit(
-            X_train, y_train, batch_size=BATCH_SIZE, epochs=MAX_EPOCH,
-            validation_data=(X_test, y_test), callbacks=callbacks)
+    gen = tk.image.ImageDataGenerator((32, 32))
+    model.fit_generator(
+        gen.flow(X_train, y_train, batch_size=BATCH_SIZE, data_augmentation=True, shuffle=True),
+        steps_per_epoch=gen.steps_per_epoch(X_train.shape[0], BATCH_SIZE),
+        epochs=MAX_EPOCH,
+        validation_data=gen.flow(X_test, y_test, batch_size=BATCH_SIZE),
+        validation_steps=gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE),
+        callbacks=callbacks)
 
     model.save(str(result_dir.joinpath('model.h5')))
 
-    score = model.evaluate(X_test, y_test, batch_size=BATCH_SIZE)
+    score = model.evaluate_generator(
+        gen.flow(X_test, y_test, batch_size=BATCH_SIZE),
+        gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE))
     logger.info('Test loss:     {}'.format(score[0]))
     logger.info('Test accuracy: {}'.format(score[1]))
+    logger.info('Test error:    {}'.format(1 - score[1]))
 
-    pred = model.predict(X_test, batch_size=BATCH_SIZE)
+    pred = model.predict_generator(
+        gen.flow(X_test, batch_size=BATCH_SIZE),
+        gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE))
     cm = sklearn.metrics.confusion_matrix(y_test.argmax(axis=-1), pred.argmax(axis=-1))
     tk.ml.plot_cm(cm, result_dir.joinpath('confusion_matrix.png'))
