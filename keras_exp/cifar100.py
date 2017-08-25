@@ -15,11 +15,11 @@ def _create_model(nb_classes: int, input_shape: tuple):
 
     def _conv(x, *args, dropout=None, name=None, **kargs):
         assert name is not None
-        x = keras.layers.BatchNormalization(name=name + 'bn')(x)
-        x = keras.layers.ELU(name=name + 'act')(x)
         if dropout:
             x = keras.layers.Dropout(dropout, name=name + 'do')(x)
         x = keras.layers.Conv2D(*args, **kargs, use_bias=False, name=name)(x)
+        x = keras.layers.BatchNormalization(name=name + 'bn')(x)
+        x = keras.layers.ELU(name=name + 'act')(x)
         return x
 
     def _branch(x, filters, name):
@@ -50,14 +50,12 @@ def _create_model(nb_classes: int, input_shape: tuple):
         return x
 
     x = inp = keras.layers.Input(input_shape)
-    x = keras.layers.Conv2D(128, (3, 3), padding='same')(x)
+    x = _conv(x, 128, (3, 3), padding='same', name='start')
     x = _block(x, 128, name='stage1_block')
     x = _ds(x, name='stage1_ds')
     x = _block(x, 256, name='stage2_block')
     x = _ds(x, name='stage2_ds')
     x = _block(x, 512, name='stage3_block')
-    x = keras.layers.BatchNormalization()(x)
-    x = keras.layers.ELU()(x)
     x = keras.layers.GlobalAveragePooling2D()(x)
     x = keras.layers.Dense(nb_classes, activation='softmax')(x)
 
