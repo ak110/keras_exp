@@ -85,7 +85,22 @@ def run(logger, result_dir: pathlib.Path):
     callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'acc'))
     # if K.backend() == 'tensorflow':
     #     callbacks.append(keras.callbacks.TensorBoard())
+
     gen = tk.image.ImageDataGenerator((32, 32))
+    gen.add(0.5, tk.image.FlipLR())
+    gen.add(0.125, tk.image.RandomBlur())
+    gen.add(0.125, tk.image.RandomBlur(partial=True))
+    gen.add(0.125, tk.image.RandomUnsharpMask())
+    gen.add(0.125, tk.image.RandomUnsharpMask(partial=True))
+    gen.add(0.125, tk.image.RandomMedian())
+    gen.add(0.125, tk.image.RandomMedian(partial=True))
+    gen.add(0.125, tk.image.GaussianNoise())
+    gen.add(0.125, tk.image.GaussianNoise(partial=True))
+    gen.add(0.125, tk.image.RandomSaturation())
+    gen.add(0.125, tk.image.RandomBrightness())
+    gen.add(0.125, tk.image.RandomContrast())
+    gen.add(0.125, tk.image.RandomLighting())
+
     model.fit_generator(
         gen.flow(X_train, y_train, batch_size=BATCH_SIZE, data_augmentation=True, shuffle=True),
         steps_per_epoch=gen.steps_per_epoch(X_train.shape[0], BATCH_SIZE),
