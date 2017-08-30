@@ -51,6 +51,7 @@ Total params: 62,826
 Trainable params: 62,442
 Non-trainable params: 384
 _________________________________________________________________
-Test loss:     0.010156309513813539
-Test accuracy: 0.9970999741554261
-Elapsed time = 672 [s]
+Test loss:     0.012613066856920341
+Test accuracy: 0.9952999800443649
+Test error:    0.004700019955635071
+Elapsed time = 1490 [s]

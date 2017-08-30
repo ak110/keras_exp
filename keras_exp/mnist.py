@@ -1,14 +1,12 @@
 """MNIST."""
 import pathlib
 
-import numpy as np
 import sklearn.metrics
 
 import pytoolkit as tk
 
 BATCH_SIZE = 100
 MAX_EPOCH = 300
-DATA_AUGMENTATION = True
 
 
 def _create_model(nb_classes: int, input_shape: tuple):
@@ -50,8 +48,8 @@ def run(logger, result_dir: pathlib.Path):
     input_shape = (28, 28, 1)
     nb_classes = 10
     (X_train, y_train), (X_test, y_test) = keras.datasets.mnist.load_data()
-    X_train = X_train.reshape(X_train.shape + (1,)).astype(np.float32) / 255
-    X_test = X_test.reshape(X_test.shape + (1,)).astype(np.float32) / 255
+    X_train = X_train.reshape(X_train.shape + (1,))
+    X_test = X_test.reshape(X_test.shape + (1,))
     y_train = keras.utils.to_categorical(y_train, nb_classes)
     y_test = keras.utils.to_categorical(y_test, nb_classes)
 
@@ -66,31 +64,34 @@ def run(logger, result_dir: pathlib.Path):
     callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'acc'))
     # if K.backend() == 'tensorflow':
     #     callbacks.append(keras.callbacks.TensorBoard())
-    if DATA_AUGMENTATION:
-        datagen = keras.preprocessing.image.ImageDataGenerator(
-            rotation_range=15,
-            width_shift_range=0.1,
-            height_shift_range=0.1,
-            shear_range=0.1,
-            zoom_range=0.1,
-            channel_shift_range=0,
-            horizontal_flip=False,
-            vertical_flip=False)
-        model.fit_generator(
-            datagen.flow(X_train, y_train, batch_size=BATCH_SIZE),
-            steps_per_epoch=X_train.shape[0] // BATCH_SIZE, epochs=MAX_EPOCH,
-            validation_data=(X_test, y_test), callbacks=callbacks)
-    else:
-        model.fit(
-            X_train, y_train, batch_size=BATCH_SIZE, epochs=MAX_EPOCH,
-            validation_data=(X_test, y_test), callbacks=callbacks)
+
+    gen = tk.image.ImageDataGenerator((28, 28), grayscale=True)
+    gen.add(0.125, tk.image.RandomBlur())
+    gen.add(0.125, tk.image.RandomBlur(partial=True))
+    gen.add(0.125, tk.image.RandomUnsharpMask())
+    gen.add(0.125, tk.image.RandomUnsharpMask(partial=True))
+    gen.add(0.125, tk.image.RandomMedian())
+    gen.add(0.125, tk.image.RandomMedian(partial=True))
+
+    model.fit_generator(
+        gen.flow(X_train, y_train, batch_size=BATCH_SIZE, data_augmentation=True, shuffle=True),
+        steps_per_epoch=gen.steps_per_epoch(X_train.shape[0], BATCH_SIZE),
+        epochs=MAX_EPOCH,
+        validation_data=gen.flow(X_test, y_test, batch_size=BATCH_SIZE),
+        validation_steps=gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE),
+        callbacks=callbacks)
 
     model.save(str(result_dir.joinpath('model.h5')))
 
-    score = model.evaluate(X_test, y_test, batch_size=BATCH_SIZE)
+    score = model.evaluate_generator(
+        gen.flow(X_test, y_test, batch_size=BATCH_SIZE),
+        gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE))
     logger.info('Test loss:     {}'.format(score[0]))
     logger.info('Test accuracy: {}'.format(score[1]))
+    logger.info('Test error:    {}'.format(1 - score[1]))
 
-    pred = model.predict(X_test, batch_size=BATCH_SIZE)
+    pred = model.predict_generator(
+        gen.flow(X_test, batch_size=BATCH_SIZE),
+        gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE))
     cm = sklearn.metrics.confusion_matrix(y_test.argmax(axis=-1), pred.argmax(axis=-1))
     tk.ml.plot_cm(cm, result_dir.joinpath('confusion_matrix.png'))
