@@ -22,34 +22,34 @@ class PriorBoxes(object):
         self.nb_classes = nb_classes
         self.input_size = (512, 512)
         self.config = [
-            {'tile_count': 63, 'aspect_ratios': [1]},
-            {'tile_count': 31, 'aspect_ratios': [1, 2, 1 / 2, 4, 1 / 4]},
-            {'tile_count': 15, 'aspect_ratios': [1, 2, 1 / 2, 4, 1 / 4]},
-            {'tile_count': 7, 'aspect_ratios': [1, 1.4, 1 / 1.4, 2, 1 / 2, 2.8, 1 / 2.8, 4, 1 / 4]},
-            {'tile_count': 3, 'aspect_ratios': [1, 1.4, 1 / 1.4, 2, 1 / 2, 2.8, 1 / 2.8, 4, 1 / 4]},
-            {'tile_count': 1, 'aspect_ratios': [1, 1.4, 1 / 1.4, 2, 1 / 2, 2.8, 1 / 2.8, 4, 1 / 4]},
+            {'prior_size': None, 'box_count': None, 'tile_count': 63, 'aspect_ratios': [1]},
+            {'prior_size': None, 'box_count': None, 'tile_count': 31, 'aspect_ratios': [1, 2, 1 / 2, 4, 1 / 4]},
+            {'prior_size': None, 'box_count': None, 'tile_count': 15, 'aspect_ratios': [1, 2, 1 / 2, 4, 1 / 4]},
+            {'prior_size': None, 'box_count': None, 'tile_count': 7, 'aspect_ratios': [1, 1.4, 1 / 1.4, 2, 1 / 2, 2.8, 1 / 2.8, 4, 1 / 4]},
+            {'prior_size': None, 'box_count': None, 'tile_count': 3, 'aspect_ratios': [1, 1.4, 1 / 1.4, 2, 1 / 2, 2.8, 1 / 2.8, 4, 1 / 4]},
+            {'prior_size': None, 'box_count': None, 'tile_count': 1, 'aspect_ratios': [1, 1.4, 1 / 1.4, 2, 1 / 2, 2.8, 1 / 2.8, 4, 1 / 4]},
         ]
         # 各tileで扱うboxのサイズを適当に決める。指数的に増やすよりは線形で増やすほうが良さそう。
         # (大きめのboxを沢山用意しておくイメージ)
-        box_size_diff = 1 / (len(self.config) - 1)
-        for i, c in enumerate(self.config):
-            c['min_size'] = box_size_diff / 2 if i == 0 else self.config[i - 1]['max_size']
-            c['max_size'] = c['min_size'] + box_size_diff
+        for c, size in zip(self.config, np.linspace(0, 1, len(self.config) + 1)[1:]):
+            c['prior_size'] = size
         # 基準となるbox(prior box)の座標を事前に算出しておく
-        # prior_boxes: shape=(box数, 4)で座標
+        # pb_locs: shape=(box数, 4)で座標
         # pb_indices: shape=(box数,)で、self.configのindex
-        self.prior_boxes, self.pb_indices = self._create_prior_boxes(self.config)
+        self.pb_locs, self.pb_indices = self._create_prior_boxes(self.config)
+        # pb_sizes: shape=(box数,)でprior_size
+        self.pb_sizes = np.array(sum([[c['prior_size']] * c['box_count'] for c in self.config], []))
+        assert len(self.pb_sizes) == len(self.pb_locs)
 
     @staticmethod
     def _create_prior_boxes(config):
         """基準となるbox(prior box)の座標(x1, y1, x2, y2)の並びを返す。"""
 
-        boxes = []
+        pb_locs = []
         pb_indices = []
         for i, c in enumerate(config):
             tile_count = c['tile_count']
-            min_size = c['min_size']
-            max_size = c['max_size']
+            prior_size = c['prior_size']
             aspect_ratios = c['aspect_ratios']
 
             # 敷き詰める間隔
@@ -65,9 +65,8 @@ class PriorBoxes(object):
             prior_boxes = np.tile(prior_boxes, (len(aspect_ratios), 1, 2))
 
             # (x1, y1, x2, y2)の位置を調整。縦横半分ずつ動かす。
-            box_default_size = np.sqrt(min_size * max_size) if min_size else np.sqrt(max_size)
-            half_box_widths = np.array([[0.5 * box_default_size * np.sqrt(ar)] for ar in aspect_ratios])
-            half_box_heights = np.array([[0.5 * box_default_size / np.sqrt(ar)] for ar in aspect_ratios])
+            half_box_widths = np.array([[0.5 * prior_size * np.sqrt(ar)] for ar in aspect_ratios])
+            half_box_heights = np.array([[0.5 * prior_size / np.sqrt(ar)] for ar in aspect_ratios])
             prior_boxes[:, :, 0] -= half_box_widths
             prior_boxes[:, :, 1] -= half_box_heights
             prior_boxes[:, :, 2] += half_box_widths
@@ -79,12 +78,12 @@ class PriorBoxes(object):
             prior_boxes = prior_boxes.reshape(-1, 4)
             c['box_count'] = len(prior_boxes)  # box個数を記録しとく。
 
-            boxes.append(prior_boxes)
+            pb_locs.append(prior_boxes)
             pb_indices.extend([i] * len(prior_boxes))
-        return np.concatenate(boxes), np.array(pb_indices)
+        return np.concatenate(pb_locs), np.array(pb_indices)
 
     def check_prior_boxes(self, logger, gt):
-        """データに対して`self.prior_boxes`がどれくらいマッチしてるか調べる。
+        """データに対して`self.pb_locs`がどれくらいマッチしてるか調べる。
 
         本当はここも学習したほうが良さそうだけどとりあえず。 (cf. YOLO9000)
         """
@@ -93,7 +92,7 @@ class PriorBoxes(object):
         match_counts = [0 for _ in range(len(self.config))]
         for _, _, classes, bboxes, _ in gt.values():
             for class_id, bbox in zip(classes, bboxes):
-                iou = tk.ml.compute_iou(self.prior_boxes, np.expand_dims(bbox, 0))
+                iou = tk.ml.compute_iou(self.pb_locs, np.expand_dims(bbox, 0))
                 m = iou >= 0.5
                 success = m.any()
                 y_true.append(class_id)
@@ -104,7 +103,7 @@ class PriorBoxes(object):
         y_pred.append(0)  # 警告よけにbgも1個入れておく
         total_gt_boxes = sum([len(bboxes) for _, _, _, bboxes, _ in gt.values()])
         cr = sklearn.metrics.classification_report(y_true, y_pred)
-        logger.debug('prior boxs = %d', len(self.prior_boxes))
+        logger.debug('prior boxs = %d', len(self.pb_locs))
         logger.debug(cr)
         logger.debug('match counts:')
         for i, c in enumerate(match_counts):
@@ -115,85 +114,109 @@ class PriorBoxes(object):
     def loss(self, y_true, y_pred):
         """損失関数。"""
         import keras
-        # import keras.backend as K
+        import keras.backend as K
         gt_confs, gt_locs = y_true[:, :, :-4], y_true[:, :, -4:]
         pred_confs, pred_locs = y_pred[:, :, :-4], y_pred[:, :, -4:]
 
-        # クラス分類のloss。
+        # クラス分類のloss
         loss_conf = keras.losses.categorical_crossentropy(gt_confs, pred_confs)
-        # 位置のloss。
-        loss_loc = keras.losses.mean_squared_error(gt_locs, pred_locs)
 
-        # TODO: 補正？
-        # mask = gt_confs[:, :, 0] <= K.epsilon()
-        # mask_size = K.sum(K.cast(mask, K.floatx()))  # 背景のconfidenceが0なものがオブジェクトなはず
-        # loss_loc = loss_loc * K.prod(K.shape(gt_locs)[:2]) / mask_size  # 補正
+        # 位置のloss
+        loss_loc = K.square(pred_locs - gt_locs)  # squared error (absolute errorでも良いかも?)
+        mask = gt_confs[:, :, 0] <= K.epsilon()  # 背景のconfidenceが0なものがオブジェクト
+        mask = K.cast(mask, K.floatx())
+        loss_loc *= K.expand_dims(mask, axis=-1)
+        loss_loc = K.sum(loss_loc) / K.sum(mask)
 
         return loss_conf + loss_loc
 
-    def encode_truth(self, y_gt: [ObjectDetectionAnnotation], nb_classes: int):
+    def encode_truth(self, y_gt: [ObjectDetectionAnnotation]):
         """学習用の`y_true`の作成。
 
         IOUが0.5以上のものを全部割り当てる＆割り当らなかったらIOUが一番大きいものに割り当てる。
         1つのprior boxに複数割り当たってしまっていたらIOUが一番大きいものを採用。
         """
-        confs = np.zeros((len(y_gt), len(self.prior_boxes), nb_classes), dtype=np.float32)
-        locs = np.zeros((len(y_gt), len(self.prior_boxes), 4), dtype=np.float32)
-        for i, (_, _, classes, bboxes, _) in enumerate(y_gt):
-            allocs = np.zeros((len(self.prior_boxes),), dtype=np.int_)  # 割り当たっている個数のリスト
-            iou_list = np.zeros((len(self.prior_boxes), len(bboxes)))
-            for bb_ix, bbox in enumerate(bboxes):
-                iou = tk.ml.compute_iou(self.prior_boxes, np.expand_dims(bbox, 0))[:, 0]
-                matches = iou >= 0.5
-                if matches.any():
-                    # IOUが0.5以上のものを全部割り当てる
-                    allocs[matches] += 1
-                    iou_list[matches, bb_ix] = iou[matches]
+        confs = np.zeros((len(y_gt), len(self.pb_locs), self.nb_classes), dtype=np.float32)
+        locs = np.zeros((len(y_gt), len(self.pb_locs), 4), dtype=np.float32)
+        # 画像ごとのループ
+        for i, (_, _, classes, bboxes, difficults) in enumerate(y_gt):
+            # prior_boxesとbboxesで重なっているものを探す
+            iou = tk.ml.compute_iou(self.pb_locs, bboxes)
+
+            pb_allocs = np.zeros((len(self.pb_locs),), dtype=np.int_)  # 割り当たっている個数のリスト
+            pb_candidates = np.empty((len(self.pb_locs),), dtype=np.int_)  # 割り当てようとしているbb_ix
+
+            for bb_ix, (class_id, difficult) in enumerate(zip(classes, difficults)):
+                if difficult:
+                    continue  # difficult == 1はスキップししておく
+                targets = iou[:, bb_ix] >= 0.5
+                if targets.any():
+                    # IOUが0.5以上のものがあるなら全部割り当てる
+                    pb_allocs[targets] += 1
+                    pb_candidates[targets] = bb_ix
                 else:
-                    # 割り当らなかったらIOUが一番大きいものに割り当てる
-                    iou_max_ix = iou.argmax()
-                    allocs[iou_max_ix] += 1
-                    iou_list[iou_max_ix, bb_ix] = 100  # 強制的に割り当てるので最優先
-            for pb_ix in allocs.nonzero()[0]:
-                assert np.sum(iou_list[pb_ix] == 100) <= 1  # 同じ箇所に2個の割り当てが発生するとつらい
-                bb_ix = iou_list[pb_ix].argmax()
+                    # 0.5以上のものが無ければIOUが一番大きいものに割り当てる
+                    targets = iou[:, bb_ix].argmax()
+                    if pb_candidates[targets] >= 0:  # 割り当て済みな場合
+                        # TODO: assert iou[target, bb_ix] >= 0.5  # 0.5未満のものが同じprior boxに割り当たるようだと困る..
+                        pass
+                    pb_allocs[targets] += 1
+                    pb_candidates[targets] = bb_ix
+
+            for pb_ix in pb_allocs.nonzero()[0]:
+                bb_ix = pb_candidates[pb_ix]
                 class_id = classes[bb_ix]
-                assert 0 < class_id and class_id < self.nb_classes
+                assert 0 < class_id < self.nb_classes
                 # confs: 該当のクラスだけ1にする。
                 confs[i, pb_ix, class_id] = 1
-                # locs: xmin, ymin, xmax, ymaxそれぞれのoffsetをそのまま回帰する。(TODO: スケールが怪しい)
-                locs[i, pb_ix, :] = bboxes[bb_ix] - self.prior_boxes[pb_ix]
+                # locs: xmin, ymin, xmax, ymaxそれぞれのoffsetをそのまま回帰する。(prior_boxのサイズでスケーリングもする)
+                locs[i, pb_ix, :] = (bboxes[bb_ix, :] - self.pb_locs[pb_ix, :]) / np.expand_dims(self.pb_sizes[pb_ix], axis=-1)
 
+        # いったんくっつける (損失関数の中で分割して使う)
         return np.concatenate([confs, locs], axis=-1)
 
     def decode_predictions(self, predictions, confidence_threshold=0.5):
         """予測結果をデコードする。
 
-        出力は `(conf, class_id, xmin, ymin, xmax, ymax)×検出数×画像数` のような形式。画像毎にconfの降順。
+        出力は以下の3つの値。画像ごとにconfidenceの降順。
+        - class_id×検出数×画像数
+        - confidence×検出数×画像数
+        - (xmin, ymin, xmax, ymax)×検出数×画像数
+
         """
-        confs, locs = predictions
-        # 0番目(bg)以外でthresholdを超えたindexリストを作る
-        max_nonbg_confs = confs[:, :, 1:].max(axis=-1)
-        pb_ix_list = np.where(max_nonbg_confs >= confidence_threshold)
-        if len(pb_ix_list) <= 0:
+        assert predictions.shape[1] == len(self.pb_locs)
+        assert predictions.shape[2] == self.nb_classes + 4
+        confs_list, locs_list = predictions[:, :, :-4], predictions[:, :, -4:]
+        classes, confs, locs = zip(*[
+            self._decode_prediction(confs, locs, confidence_threshold)
+            for confs, locs
+            in zip(confs_list, locs_list)])
+        return np.array(classes), np.array(confs), np.array(locs)
+
+    def _decode_prediction(self, pred_confs, pred_locs, confidence_threshold):
+        """予測結果のデコード。(1枚分)"""
+        assert len(pred_confs) == len(pred_locs)
+        assert pred_confs.shape == (len(self.pb_locs), self.nb_classes)
+        assert pred_locs.shape == (len(self.pb_locs), 4)
+        max_nonbg_confs = pred_confs[:, 1:].max(axis=-1)  # prior box数分の、背景以外のconfidenceの最大値
+        pb_mask = max_nonbg_confs >= confidence_threshold
+        if not pb_mask.any():
             # thresholdを超えたのが1つも無ければとりあえず1個だけ最大のを取り出す。
-            pb_ix_list = [max_nonbg_confs.argmax()]
-        # conf, locを集めてくっつける
-        conf_list = max_nonbg_confs[pb_ix_list]
-        class_id_list = confs[pb_ix_list].argmax(axis=-1)
-        loc_list = self.prior_boxes[pb_ix_list] + locs[pb_ix_list, :]
-        results = np.concatenate([
-            np.expand_dims(conf_list, axis=-1),
-            np.expand_dims(class_id_list, axis=-1),
-            loc_list
-        ], axis=1)
+            pb_mask[max_nonbg_confs.argmax()] = True
+        # 条件に該当するものを取得
+        confs = max_nonbg_confs[pb_mask]
+        classes = pred_confs[pb_mask, :].argmax(axis=-1)
+        locs = (self.pb_locs[pb_mask, :] + pred_locs[pb_mask, :]) * np.expand_dims(self.pb_sizes[pb_mask], axis=-1)
+        locs = np.clip(locs, 0, 1)  # はみ出ている分はクリッピング
         # confの降順にソート
-        results.sort(axis=0, order='')
-        results = results[::-1, :]
-        return results
+        order = confs.argsort()[::-1]
+        confs = confs[order]
+        classes = classes[order]
+        locs = locs[order, :]
+        return classes, confs, locs
 
 
-def _create_model(nb_classes: int, input_shape: tuple, pbox: PriorBoxes):
+def _create_model(input_shape: tuple, pbox: PriorBoxes):
     import keras
 
     def _conv(x, *args, name=None, **kargs):
@@ -203,7 +226,7 @@ def _create_model(nb_classes: int, input_shape: tuple, pbox: PriorBoxes):
         return x
 
     def _conv2(x, nb_filter, name):
-        x = _conv(x, nb_filter // 4, (1, 1), name=name + 'sq')
+        x = _conv(x, nb_filter // 2, (1, 1), name=name + 'sq')
         x = _conv(x, nb_filter, (3, 3), padding='same', name=name + 'ex')
         return x
 
@@ -217,13 +240,12 @@ def _create_model(nb_classes: int, input_shape: tuple, pbox: PriorBoxes):
         return x
 
     def _ds(x, pool_size, strides, name):
-        return keras.layers.Concatenate(name=name + '_mixed')([
-            keras.layers.MaxPooling2D(pool_size, strides, name=name + '_max')(x),
-            keras.layers.AveragePooling2D(pool_size, strides, name=name + '_avg')(x),
-        ])
+        x1 = keras.layers.MaxPooling2D(pool_size, strides, name=name + '_max')(x)
+        x2 = keras.layers.AveragePooling2D(pool_size, strides, name=name + '_avg')(x)
+        return keras.layers.Concatenate(name=name + '_mixed')([x1, x2, ])
 
     def _us(x, *args, name=None, **kargs):
-        x = keras.layers.BatchNormalization(name=name + 'bn')(x)
+        # x = keras.layers.BatchNormalization(name=name + 'bn')(x)
         x = keras.layers.ELU(name=name + 'act')(x)
         x = keras.layers.Conv2DTranspose(*args, use_bias=False, name=name, **kargs)(x)
         return x
@@ -246,15 +268,15 @@ def _create_model(nb_classes: int, input_shape: tuple, pbox: PriorBoxes):
     x = _ds(x, (3, 3), (2, 2), 'stage5_ds')  # 15
     net['out15'] = x
 
-    x = _conv2(x, 512, 'stage6_conv')
+    x = _conv2(x, 256, 'stage6_conv')
     x = _ds(x, (3, 3), (2, 2), 'stage6_ds')  # 7
     net['out7'] = x
 
-    x = _conv2(net['out7'], 512, 'stage7_conv')
+    x = _conv2(net['out7'], 256, 'stage7_conv')
     x = _ds(x, (3, 3), (2, 2), 'stage7_ds')  # 3
     net['out3'] = x
 
-    x = _conv2(x, 512, 'stage8_conv')
+    x = _conv2(x, 256, 'stage8_conv')
     x = _ds(x, (3, 3), (1, 1), 'stage8_ds')  # 1
     net['out1'] = x
 
@@ -290,11 +312,8 @@ def _create_model(nb_classes: int, input_shape: tuple, pbox: PriorBoxes):
 
         x = net['out{}'.format(tile_count)]
 
-        conf = _conv(x, priors * nb_classes, (1, 1), name='out{}conf_{}x{}'.format(tile_count, priors, nb_classes))
-        conf = keras.layers.Reshape((-1, nb_classes))(conf)
-
-        # locには全体的な傾向がある気がするのでGlobalAveragePoolingしたやつを足し込むとかしてみたい。
-        # (w/hだけとかがよいかも)
+        conf = _conv(x, priors * pbox.nb_classes, (1, 1), name='out{}conf_{}x{}'.format(tile_count, priors, pbox.nb_classes))
+        conf = keras.layers.Reshape((-1, pbox.nb_classes))(conf)
 
         loc = _conv(x, priors * 4, (1, 1), name='out{}loc_{}'.format(tile_count, priors))
         loc = keras.layers.Reshape((-1, 4))(loc)
@@ -319,25 +338,27 @@ def _create_model(nb_classes: int, input_shape: tuple, pbox: PriorBoxes):
 class Generator(tk.image.ImageDataGenerator):
     """データの読み込みを行うGenerator。"""
 
-    def __init__(self, data_dir: pathlib.Path, gt: dict, nb_classes: int, pbox: PriorBoxes, input_shape: tuple):
-        self.image_dir = str(data_dir.joinpath('VOCdevkit', 'VOC2007', 'JPEGImages'))
-        self.gt = gt
-        self.nb_classes = nb_classes
-        self.pbox = pbox
-        super().__init__(image_size=input_shape[:2])
-
-    def _prepare(self, X, y=None, weights=None, **kargs):
-        if y is not None:
-            y = [self.gt[x] for x in X]
-            y = self.pbox.encode_truth(y, self.nb_classes)
-        import os
-        X = [self.image_dir + os.sep + x + '.jpg' for x in X]
-        return super()._prepare(X, y, weights, **kargs)
-
     def _transform(self, rgb, rand):
         """変形を伴うAugmentation。"""
         # とりあえず殺しておく
         return rgb
+
+
+def print_map(model, gen, X_test, y_test, pbox):
+    """`mAP`を算出してprintする。"""
+    print('')
+    pred = model.predict_generator(
+        gen.flow(X_test, batch_size=BATCH_SIZE),
+        gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE),
+        verbose=1)
+    gt_classes_list = np.array([y.classes for y in y_test])
+    gt_bboxes_list = np.array([y.bboxes for y in y_test])
+    gt_difficults_list = np.array([y.difficults for y in y_test])
+    pred_classes_list, _, pred_locs_list = pbox.decode_predictions(pred)
+    map1 = tk.ml.compute_map(gt_classes_list, gt_bboxes_list, gt_difficults_list, pred_classes_list, pred_locs_list, use_voc2007_metric=False)
+    map2 = tk.ml.compute_map(gt_classes_list, gt_bboxes_list, gt_difficults_list, pred_classes_list, pred_locs_list, use_voc2007_metric=True)
+    print('mAP={:.4f} mAP(VOC2007)={:.4f}'.format(map1, map2))
+    print('')
 
 
 def run(logger, result_dir: pathlib.Path, data_dir: pathlib.Path):
@@ -350,21 +371,20 @@ def run(logger, result_dir: pathlib.Path, data_dir: pathlib.Path):
     if False:
         pbox.check_prior_boxes(logger, gt)
 
+    y_train = pbox.encode_truth([gt[x] for x in X_train])
+    y_test = [gt[x] for x in X_test]
+    image_dir = str(data_dir.joinpath('VOCdevkit', 'VOC2007', 'JPEGImages')) + '/'
+    X_train = np.array([image_dir + x + '.jpg' for x in X_train])
+    X_test = np.array([image_dir + x + '.jpg' for x in X_test])
+
     import keras
     input_shape = (512, 512, 3)
-    model = _create_model(nb_classes, input_shape, pbox)
+    model = _create_model(input_shape, pbox)
     model.summary(print_fn=logger.debug)
     keras.utils.plot_model(model, str(result_dir.joinpath('model.png')), show_shapes=True)
     tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))
 
-    callbacks = []
-    # callbacks.append(tk.dl.my_callback_factory()(result_dir, base_lr=1e-3))
-    # callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'loss'))
-    # callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'acc'))
-    # if K.backend() == 'tensorflow':
-    #     callbacks.append(keras.callbacks.TensorBoard())
-
-    gen = Generator(data_dir, gt, nb_classes, pbox, input_shape)
+    gen = Generator(image_size=input_shape[:2])
     gen.add(0.5, tk.image.FlipLR())
     gen.add(0.125, tk.image.RandomBlur())
     gen.add(0.125, tk.image.RandomBlur(partial=True))
@@ -379,21 +399,27 @@ def run(logger, result_dir: pathlib.Path, data_dir: pathlib.Path):
     gen.add(0.125, tk.image.RandomContrast())
     gen.add(0.125, tk.image.RandomLighting())
 
+    callbacks = []
+    callbacks.append(tk.dl.my_callback_factory()(result_dir, base_lr=1e-3))
+    callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'loss'))
+    # callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'acc'))
+    # if K.backend() == 'tensorflow':
+    #     callbacks.append(keras.callbacks.TensorBoard())
+
+    # 各epoch毎にmAPを算出して表示してみる
+    callbacks.append(keras.callbacks.LambdaCallback(
+        on_epoch_end=lambda epoch, logs: print_map(model, gen, X_test, y_test, pbox)
+    ))
+
     model.fit_generator(
-        gen.flow(X_train, X_train, batch_size=BATCH_SIZE),
+        gen.flow(X_train, y_train, batch_size=BATCH_SIZE),
         steps_per_epoch=gen.steps_per_epoch(X_train.shape[0], BATCH_SIZE),
         epochs=MAX_EPOCH,
-        validation_data=gen.flow(X_test, X_test, batch_size=BATCH_SIZE),
-        validation_steps=gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE),
+        # validation_data=gen.flow(X_test, y_test, batch_size=BATCH_SIZE),
+        # validation_steps=gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE),
         callbacks=callbacks)
 
     model.save(str(result_dir.joinpath('model.h5')))
-
-    pred = model.predict_generator(
-        gen.flow(X_test, batch_size=BATCH_SIZE),
-        gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE))
-
-    # TODO: mAP
 
 
 def load_gt(data_dir: pathlib.Path) -> (dict, int):
