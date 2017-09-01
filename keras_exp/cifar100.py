@@ -27,7 +27,7 @@ def _create_model(nb_classes: int, input_shape: tuple):
         return x
 
     def _block(x, inc_filters, name):
-        for i in range(4):
+        for i in range(6):
             b = _branch(x, inc_filters, name=name + '_b' + str(i))
             x = keras.layers.Concatenate()([x, b])
         compressed_filters = K.int_shape(x)[-1] // 2
