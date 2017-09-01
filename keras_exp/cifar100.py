@@ -15,26 +15,23 @@ def _create_model(nb_classes: int, input_shape: tuple):
 
     def _conv(x, filters, kernel_size, name=None, **kargs):
         assert name is not None
-        x = keras.layers.Conv2D(filters, kernel_size, use_bias=False, name=name, **kargs)(x)
-        x = keras.layers.BatchNormalization(name=name + 'bn')(x)
-        x = keras.layers.ELU(name=name + 'act')(x)
+        x = keras.layers.Conv2D(filters, kernel_size, use_bias=False, name=name + '_conv', **kargs)(x)
+        x = keras.layers.BatchNormalization(name=name + '_bn')(x)
+        x = keras.layers.ELU(name=name + '_act')(x)
         return x
 
     def _branch(x, filters, name):
-        x = _conv(x, filters // 2, (1, 1), padding='same', name=name + '_sq')
-        x = keras.layers.Dropout(0.25, name=name + '_do')(x)
+        x = _conv(x, filters * 4, (1, 1), padding='same', name=name + '_sq')
+        x = keras.layers.Dropout(0.25, name=name + '_drop')(x)
         x = _conv(x, filters, (3, 3), padding='same', name=name + '_ex')
         return x
 
-    def _block(x, filters, name):
-        x0 = x
-        x1 = x = _branch(x, filters, name=name + '_b1')
-        x2 = x = _branch(x, filters, name=name + '_b2')
-        x3 = x = _branch(x, filters, name=name + '_b3')
-        x4 = x = _branch(x, filters, name=name + '_b4')
-        x = keras.layers.Concatenate()([x1, x2, x3, x4])
-        x = _conv(x, filters, (1, 1), name=name + '_mixed')
-        x = keras.layers.Add()([x0, x])
+    def _block(x, inc_filters, name):
+        for i in range(4):
+            b = _branch(x, inc_filters, name=name + '_b' + str(i))
+            x = keras.layers.Concatenate()([x, b])
+        compressed_filters = K.int_shape(x)[-1] // 2
+        x = _conv(x, compressed_filters, (1, 1), name=name + '_sq')
         return x
 
     def _ds(x, name):
@@ -42,21 +39,28 @@ def _create_model(nb_classes: int, input_shape: tuple):
 
         mp = keras.layers.MaxPooling2D()(x)
 
-        cv = _conv(x, filters // 4, (1, 1), name=name + '_sq')
-        cv = _conv(cv, filters, (3, 3), strides=(2, 2), padding='same', name=name + '_ds')
+        avg = _conv(x, filters // 2, (1, 1), name=name + '_avgsq')
+        avg = keras.layers.AveragePooling2D()(avg)
 
-        x = keras.layers.Concatenate()([mp, cv])
+        c1 = _conv(x, filters // 4, (3, 3), strides=(2, 2), padding='same', name=name + '_c1')
+
+        c2 = _conv(x, filters // 4, (1, 1), name=name + '_c2sq')
+        c2 = _conv(c2, filters // 4, (3, 3), padding='same', name=name + '_c2c')
+        c2 = _conv(c2, filters // 4, (3, 3), strides=(2, 2), padding='same', name=name + '_c2ex')
+
+        x = keras.layers.Concatenate()([mp, avg, c1, c2])
+        x = _conv(x, filters, (1, 1), name=name + '_sq')
         return x
 
     x = inp = keras.layers.Input(input_shape)
-    x = _conv(x, 128, (3, 3), padding='same', name='start')
-    x = _block(x, 128, name='stage1_block')
+    x = _conv(x, 64, (3, 3), padding='same', name='start')
+    x = _block(x, 32, name='stage1_block')
     x = _ds(x, name='stage1_ds')
-    x = _block(x, 256, name='stage2_block')
+    x = _block(x, 48, name='stage2_block')
     x = _ds(x, name='stage2_ds')
-    x = _block(x, 512, name='stage3_block')
+    x = _block(x, 64, name='stage3_block')
     x = keras.layers.GlobalAveragePooling2D()(x)
-    x = keras.layers.Dense(nb_classes, activation='softmax')(x)
+    x = keras.layers.Dense(nb_classes, activation='softmax', kernel_regularizer='l2')(x)
 
     model = keras.models.Model(inputs=inp, outputs=x)
     model.compile('nadam', 'categorical_crossentropy', ['acc'])
