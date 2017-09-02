@@ -9,429 +9,604 @@ start_bn (BatchNormalization)    (None, 32, 32, 64)    256         start_conv[0]
 ____________________________________________________________________________________________________
 start_act (ELU)                  (None, 32, 32, 64)    0           start_bn[0][0]                   
 ____________________________________________________________________________________________________
-stage1_block_b0_sq_conv (Conv2D) (None, 32, 32, 128)   8192        start_act[0][0]                  
+stage1_block1_sq_conv (Conv2D)   (None, 32, 32, 128)   8192        start_act[0][0]                  
 ____________________________________________________________________________________________________
-stage1_block_b0_sq_bn (BatchNorm (None, 32, 32, 128)   512         stage1_block_b0_sq_conv[0][0]    
+stage1_block1_sq_bn (BatchNormal (None, 32, 32, 128)   512         stage1_block1_sq_conv[0][0]      
 ____________________________________________________________________________________________________
-stage1_block_b0_sq_act (ELU)     (None, 32, 32, 128)   0           stage1_block_b0_sq_bn[0][0]      
+stage1_block1_sq_act (ELU)       (None, 32, 32, 128)   0           stage1_block1_sq_bn[0][0]        
 ____________________________________________________________________________________________________
-stage1_block_b0_drop (Dropout)   (None, 32, 32, 128)   0           stage1_block_b0_sq_act[0][0]     
+stage1_block1_b0_c1_conv (Conv2D (None, 32, 32, 32)    36864       stage1_block1_sq_act[0][0]       
 ____________________________________________________________________________________________________
-stage1_block_b0_ex_conv (Conv2D) (None, 32, 32, 32)    36864       stage1_block_b0_drop[0][0]       
+stage1_block1_b0_c1_bn (BatchNor (None, 32, 32, 32)    128         stage1_block1_b0_c1_conv[0][0]   
 ____________________________________________________________________________________________________
-stage1_block_b0_ex_bn (BatchNorm (None, 32, 32, 32)    128         stage1_block_b0_ex_conv[0][0]    
+stage1_block1_b0_c1_act (ELU)    (None, 32, 32, 32)    0           stage1_block1_b0_c1_bn[0][0]     
 ____________________________________________________________________________________________________
-stage1_block_b0_ex_act (ELU)     (None, 32, 32, 32)    0           stage1_block_b0_ex_bn[0][0]      
+stage1_block1_b0_drop (Dropout)  (None, 32, 32, 32)    0           stage1_block1_b0_c1_act[0][0]    
 ____________________________________________________________________________________________________
-concatenate_1 (Concatenate)      (None, 32, 32, 96)    0           start_act[0][0]                  
-                                                                   stage1_block_b0_ex_act[0][0]     
+stage1_block1_b0_c2_conv (Conv2D (None, 32, 32, 32)    9216        stage1_block1_b0_drop[0][0]      
 ____________________________________________________________________________________________________
-stage1_block_b1_sq_conv (Conv2D) (None, 32, 32, 128)   12288       concatenate_1[0][0]              
+stage1_block1_b0_c2_bn (BatchNor (None, 32, 32, 32)    128         stage1_block1_b0_c2_conv[0][0]   
 ____________________________________________________________________________________________________
-stage1_block_b1_sq_bn (BatchNorm (None, 32, 32, 128)   512         stage1_block_b1_sq_conv[0][0]    
+stage1_block1_b0_c2_act (ELU)    (None, 32, 32, 32)    0           stage1_block1_b0_c2_bn[0][0]     
 ____________________________________________________________________________________________________
-stage1_block_b1_sq_act (ELU)     (None, 32, 32, 128)   0           stage1_block_b1_sq_bn[0][0]      
+concatenate_1 (Concatenate)      (None, 32, 32, 160)   0           stage1_block1_sq_act[0][0]       
+                                                                   stage1_block1_b0_c2_act[0][0]    
 ____________________________________________________________________________________________________
-stage1_block_b1_drop (Dropout)   (None, 32, 32, 128)   0           stage1_block_b1_sq_act[0][0]     
+stage1_block1_b1_c1_conv (Conv2D (None, 32, 32, 32)    46080       concatenate_1[0][0]              
 ____________________________________________________________________________________________________
-stage1_block_b1_ex_conv (Conv2D) (None, 32, 32, 32)    36864       stage1_block_b1_drop[0][0]       
+stage1_block1_b1_c1_bn (BatchNor (None, 32, 32, 32)    128         stage1_block1_b1_c1_conv[0][0]   
 ____________________________________________________________________________________________________
-stage1_block_b1_ex_bn (BatchNorm (None, 32, 32, 32)    128         stage1_block_b1_ex_conv[0][0]    
+stage1_block1_b1_c1_act (ELU)    (None, 32, 32, 32)    0           stage1_block1_b1_c1_bn[0][0]     
 ____________________________________________________________________________________________________
-stage1_block_b1_ex_act (ELU)     (None, 32, 32, 32)    0           stage1_block_b1_ex_bn[0][0]      
+stage1_block1_b1_drop (Dropout)  (None, 32, 32, 32)    0           stage1_block1_b1_c1_act[0][0]    
 ____________________________________________________________________________________________________
-concatenate_2 (Concatenate)      (None, 32, 32, 128)   0           concatenate_1[0][0]              
-                                                                   stage1_block_b1_ex_act[0][0]     
+stage1_block1_b1_c2_conv (Conv2D (None, 32, 32, 32)    9216        stage1_block1_b1_drop[0][0]      
 ____________________________________________________________________________________________________
-stage1_block_b2_sq_conv (Conv2D) (None, 32, 32, 128)   16384       concatenate_2[0][0]              
+stage1_block1_b1_c2_bn (BatchNor (None, 32, 32, 32)    128         stage1_block1_b1_c2_conv[0][0]   
 ____________________________________________________________________________________________________
-stage1_block_b2_sq_bn (BatchNorm (None, 32, 32, 128)   512         stage1_block_b2_sq_conv[0][0]    
+stage1_block1_b1_c2_act (ELU)    (None, 32, 32, 32)    0           stage1_block1_b1_c2_bn[0][0]     
 ____________________________________________________________________________________________________
-stage1_block_b2_sq_act (ELU)     (None, 32, 32, 128)   0           stage1_block_b2_sq_bn[0][0]      
+concatenate_2 (Concatenate)      (None, 32, 32, 192)   0           concatenate_1[0][0]              
+                                                                   stage1_block1_b1_c2_act[0][0]    
 ____________________________________________________________________________________________________
-stage1_block_b2_drop (Dropout)   (None, 32, 32, 128)   0           stage1_block_b2_sq_act[0][0]     
+stage1_block1_b2_c1_conv (Conv2D (None, 32, 32, 32)    55296       concatenate_2[0][0]              
 ____________________________________________________________________________________________________
-stage1_block_b2_ex_conv (Conv2D) (None, 32, 32, 32)    36864       stage1_block_b2_drop[0][0]       
+stage1_block1_b2_c1_bn (BatchNor (None, 32, 32, 32)    128         stage1_block1_b2_c1_conv[0][0]   
 ____________________________________________________________________________________________________
-stage1_block_b2_ex_bn (BatchNorm (None, 32, 32, 32)    128         stage1_block_b2_ex_conv[0][0]    
+stage1_block1_b2_c1_act (ELU)    (None, 32, 32, 32)    0           stage1_block1_b2_c1_bn[0][0]     
 ____________________________________________________________________________________________________
-stage1_block_b2_ex_act (ELU)     (None, 32, 32, 32)    0           stage1_block_b2_ex_bn[0][0]      
+stage1_block1_b2_drop (Dropout)  (None, 32, 32, 32)    0           stage1_block1_b2_c1_act[0][0]    
 ____________________________________________________________________________________________________
-concatenate_3 (Concatenate)      (None, 32, 32, 160)   0           concatenate_2[0][0]              
-                                                                   stage1_block_b2_ex_act[0][0]     
+stage1_block1_b2_c2_conv (Conv2D (None, 32, 32, 32)    9216        stage1_block1_b2_drop[0][0]      
 ____________________________________________________________________________________________________
-stage1_block_b3_sq_conv (Conv2D) (None, 32, 32, 128)   20480       concatenate_3[0][0]              
+stage1_block1_b2_c2_bn (BatchNor (None, 32, 32, 32)    128         stage1_block1_b2_c2_conv[0][0]   
 ____________________________________________________________________________________________________
-stage1_block_b3_sq_bn (BatchNorm (None, 32, 32, 128)   512         stage1_block_b3_sq_conv[0][0]    
+stage1_block1_b2_c2_act (ELU)    (None, 32, 32, 32)    0           stage1_block1_b2_c2_bn[0][0]     
 ____________________________________________________________________________________________________
-stage1_block_b3_sq_act (ELU)     (None, 32, 32, 128)   0           stage1_block_b3_sq_bn[0][0]      
+concatenate_3 (Concatenate)      (None, 32, 32, 224)   0           concatenate_2[0][0]              
+                                                                   stage1_block1_b2_c2_act[0][0]    
 ____________________________________________________________________________________________________
-stage1_block_b3_drop (Dropout)   (None, 32, 32, 128)   0           stage1_block_b3_sq_act[0][0]     
+stage1_block1_b3_c1_conv (Conv2D (None, 32, 32, 32)    64512       concatenate_3[0][0]              
 ____________________________________________________________________________________________________
-stage1_block_b3_ex_conv (Conv2D) (None, 32, 32, 32)    36864       stage1_block_b3_drop[0][0]       
+stage1_block1_b3_c1_bn (BatchNor (None, 32, 32, 32)    128         stage1_block1_b3_c1_conv[0][0]   
 ____________________________________________________________________________________________________
-stage1_block_b3_ex_bn (BatchNorm (None, 32, 32, 32)    128         stage1_block_b3_ex_conv[0][0]    
+stage1_block1_b3_c1_act (ELU)    (None, 32, 32, 32)    0           stage1_block1_b3_c1_bn[0][0]     
 ____________________________________________________________________________________________________
-stage1_block_b3_ex_act (ELU)     (None, 32, 32, 32)    0           stage1_block_b3_ex_bn[0][0]      
+stage1_block1_b3_drop (Dropout)  (None, 32, 32, 32)    0           stage1_block1_b3_c1_act[0][0]    
 ____________________________________________________________________________________________________
-concatenate_4 (Concatenate)      (None, 32, 32, 192)   0           concatenate_3[0][0]              
-                                                                   stage1_block_b3_ex_act[0][0]     
+stage1_block1_b3_c2_conv (Conv2D (None, 32, 32, 32)    9216        stage1_block1_b3_drop[0][0]      
 ____________________________________________________________________________________________________
-stage1_block_b4_sq_conv (Conv2D) (None, 32, 32, 128)   24576       concatenate_4[0][0]              
+stage1_block1_b3_c2_bn (BatchNor (None, 32, 32, 32)    128         stage1_block1_b3_c2_conv[0][0]   
 ____________________________________________________________________________________________________
-stage1_block_b4_sq_bn (BatchNorm (None, 32, 32, 128)   512         stage1_block_b4_sq_conv[0][0]    
+stage1_block1_b3_c2_act (ELU)    (None, 32, 32, 32)    0           stage1_block1_b3_c2_bn[0][0]     
 ____________________________________________________________________________________________________
-stage1_block_b4_sq_act (ELU)     (None, 32, 32, 128)   0           stage1_block_b4_sq_bn[0][0]      
+concatenate_4 (Concatenate)      (None, 32, 32, 256)   0           concatenate_3[0][0]              
+                                                                   stage1_block1_b3_c2_act[0][0]    
 ____________________________________________________________________________________________________
-stage1_block_b4_drop (Dropout)   (None, 32, 32, 128)   0           stage1_block_b4_sq_act[0][0]     
+concatenate_5 (Concatenate)      (None, 32, 32, 320)   0           start_act[0][0]                  
+                                                                   concatenate_4[0][0]              
 ____________________________________________________________________________________________________
-stage1_block_b4_ex_conv (Conv2D) (None, 32, 32, 32)    36864       stage1_block_b4_drop[0][0]       
+stage1_block1_cm_compress_conv ( (None, 32, 32, 160)   51200       concatenate_5[0][0]              
 ____________________________________________________________________________________________________
-stage1_block_b4_ex_bn (BatchNorm (None, 32, 32, 32)    128         stage1_block_b4_ex_conv[0][0]    
+stage1_block1_cm_compress_bn (Ba (None, 32, 32, 160)   640         stage1_block1_cm_compress_conv[0]
 ____________________________________________________________________________________________________
-stage1_block_b4_ex_act (ELU)     (None, 32, 32, 32)    0           stage1_block_b4_ex_bn[0][0]      
+stage1_block1_cm_compress_act (E (None, 32, 32, 160)   0           stage1_block1_cm_compress_bn[0][0
 ____________________________________________________________________________________________________
-concatenate_5 (Concatenate)      (None, 32, 32, 224)   0           concatenate_4[0][0]              
-                                                                   stage1_block_b4_ex_act[0][0]     
+stage1_block2_sq_conv (Conv2D)   (None, 32, 32, 128)   20480       stage1_block1_cm_compress_act[0][
 ____________________________________________________________________________________________________
-stage1_block_b5_sq_conv (Conv2D) (None, 32, 32, 128)   28672       concatenate_5[0][0]              
+stage1_block2_sq_bn (BatchNormal (None, 32, 32, 128)   512         stage1_block2_sq_conv[0][0]      
 ____________________________________________________________________________________________________
-stage1_block_b5_sq_bn (BatchNorm (None, 32, 32, 128)   512         stage1_block_b5_sq_conv[0][0]    
+stage1_block2_sq_act (ELU)       (None, 32, 32, 128)   0           stage1_block2_sq_bn[0][0]        
 ____________________________________________________________________________________________________
-stage1_block_b5_sq_act (ELU)     (None, 32, 32, 128)   0           stage1_block_b5_sq_bn[0][0]      
+stage1_block2_b0_c1_conv (Conv2D (None, 32, 32, 32)    36864       stage1_block2_sq_act[0][0]       
 ____________________________________________________________________________________________________
-stage1_block_b5_drop (Dropout)   (None, 32, 32, 128)   0           stage1_block_b5_sq_act[0][0]     
+stage1_block2_b0_c1_bn (BatchNor (None, 32, 32, 32)    128         stage1_block2_b0_c1_conv[0][0]   
 ____________________________________________________________________________________________________
-stage1_block_b5_ex_conv (Conv2D) (None, 32, 32, 32)    36864       stage1_block_b5_drop[0][0]       
+stage1_block2_b0_c1_act (ELU)    (None, 32, 32, 32)    0           stage1_block2_b0_c1_bn[0][0]     
 ____________________________________________________________________________________________________
-stage1_block_b5_ex_bn (BatchNorm (None, 32, 32, 32)    128         stage1_block_b5_ex_conv[0][0]    
+stage1_block2_b0_drop (Dropout)  (None, 32, 32, 32)    0           stage1_block2_b0_c1_act[0][0]    
 ____________________________________________________________________________________________________
-stage1_block_b5_ex_act (ELU)     (None, 32, 32, 32)    0           stage1_block_b5_ex_bn[0][0]      
+stage1_block2_b0_c2_conv (Conv2D (None, 32, 32, 32)    9216        stage1_block2_b0_drop[0][0]      
 ____________________________________________________________________________________________________
-concatenate_6 (Concatenate)      (None, 32, 32, 256)   0           concatenate_5[0][0]              
-                                                                   stage1_block_b5_ex_act[0][0]     
+stage1_block2_b0_c2_bn (BatchNor (None, 32, 32, 32)    128         stage1_block2_b0_c2_conv[0][0]   
 ____________________________________________________________________________________________________
-stage1_block_sq_conv (Conv2D)    (None, 32, 32, 128)   32768       concatenate_6[0][0]              
+stage1_block2_b0_c2_act (ELU)    (None, 32, 32, 32)    0           stage1_block2_b0_c2_bn[0][0]     
 ____________________________________________________________________________________________________
-stage1_block_sq_bn (BatchNormali (None, 32, 32, 128)   512         stage1_block_sq_conv[0][0]       
+concatenate_6 (Concatenate)      (None, 32, 32, 160)   0           stage1_block2_sq_act[0][0]       
+                                                                   stage1_block2_b0_c2_act[0][0]    
 ____________________________________________________________________________________________________
-stage1_block_sq_act (ELU)        (None, 32, 32, 128)   0           stage1_block_sq_bn[0][0]         
+stage1_block2_b1_c1_conv (Conv2D (None, 32, 32, 32)    46080       concatenate_6[0][0]              
 ____________________________________________________________________________________________________
-stage1_ds_c2sq_conv (Conv2D)     (None, 32, 32, 32)    4096        stage1_block_sq_act[0][0]        
+stage1_block2_b1_c1_bn (BatchNor (None, 32, 32, 32)    128         stage1_block2_b1_c1_conv[0][0]   
 ____________________________________________________________________________________________________
-stage1_ds_c2sq_bn (BatchNormaliz (None, 32, 32, 32)    128         stage1_ds_c2sq_conv[0][0]        
+stage1_block2_b1_c1_act (ELU)    (None, 32, 32, 32)    0           stage1_block2_b1_c1_bn[0][0]     
 ____________________________________________________________________________________________________
-stage1_ds_c2sq_act (ELU)         (None, 32, 32, 32)    0           stage1_ds_c2sq_bn[0][0]          
+stage1_block2_b1_drop (Dropout)  (None, 32, 32, 32)    0           stage1_block2_b1_c1_act[0][0]    
 ____________________________________________________________________________________________________
-stage1_ds_c2c_conv (Conv2D)      (None, 32, 32, 32)    9216        stage1_ds_c2sq_act[0][0]         
+stage1_block2_b1_c2_conv (Conv2D (None, 32, 32, 32)    9216        stage1_block2_b1_drop[0][0]      
 ____________________________________________________________________________________________________
-stage1_ds_c2c_bn (BatchNormaliza (None, 32, 32, 32)    128         stage1_ds_c2c_conv[0][0]         
+stage1_block2_b1_c2_bn (BatchNor (None, 32, 32, 32)    128         stage1_block2_b1_c2_conv[0][0]   
 ____________________________________________________________________________________________________
-stage1_ds_avgsq_conv (Conv2D)    (None, 32, 32, 64)    8192        stage1_block_sq_act[0][0]        
+stage1_block2_b1_c2_act (ELU)    (None, 32, 32, 32)    0           stage1_block2_b1_c2_bn[0][0]     
 ____________________________________________________________________________________________________
-stage1_ds_c2c_act (ELU)          (None, 32, 32, 32)    0           stage1_ds_c2c_bn[0][0]           
+concatenate_7 (Concatenate)      (None, 32, 32, 192)   0           concatenate_6[0][0]              
+                                                                   stage1_block2_b1_c2_act[0][0]    
 ____________________________________________________________________________________________________
-stage1_ds_avgsq_bn (BatchNormali (None, 32, 32, 64)    256         stage1_ds_avgsq_conv[0][0]       
+stage1_block2_b2_c1_conv (Conv2D (None, 32, 32, 32)    55296       concatenate_7[0][0]              
 ____________________________________________________________________________________________________
-stage1_ds_c1_conv (Conv2D)       (None, 16, 16, 32)    36864       stage1_block_sq_act[0][0]        
+stage1_block2_b2_c1_bn (BatchNor (None, 32, 32, 32)    128         stage1_block2_b2_c1_conv[0][0]   
 ____________________________________________________________________________________________________
-stage1_ds_c2ex_conv (Conv2D)     (None, 16, 16, 32)    9216        stage1_ds_c2c_act[0][0]          
+stage1_block2_b2_c1_act (ELU)    (None, 32, 32, 32)    0           stage1_block2_b2_c1_bn[0][0]     
 ____________________________________________________________________________________________________
-stage1_ds_avgsq_act (ELU)        (None, 32, 32, 64)    0           stage1_ds_avgsq_bn[0][0]         
+stage1_block2_b2_drop (Dropout)  (None, 32, 32, 32)    0           stage1_block2_b2_c1_act[0][0]    
 ____________________________________________________________________________________________________
-stage1_ds_c1_bn (BatchNormalizat (None, 16, 16, 32)    128         stage1_ds_c1_conv[0][0]          
+stage1_block2_b2_c2_conv (Conv2D (None, 32, 32, 32)    9216        stage1_block2_b2_drop[0][0]      
 ____________________________________________________________________________________________________
-stage1_ds_c2ex_bn (BatchNormaliz (None, 16, 16, 32)    128         stage1_ds_c2ex_conv[0][0]        
+stage1_block2_b2_c2_bn (BatchNor (None, 32, 32, 32)    128         stage1_block2_b2_c2_conv[0][0]   
 ____________________________________________________________________________________________________
-max_pooling2d_1 (MaxPooling2D)   (None, 16, 16, 128)   0           stage1_block_sq_act[0][0]        
+stage1_block2_b2_c2_act (ELU)    (None, 32, 32, 32)    0           stage1_block2_b2_c2_bn[0][0]     
 ____________________________________________________________________________________________________
-average_pooling2d_1 (AveragePool (None, 16, 16, 64)    0           stage1_ds_avgsq_act[0][0]        
+concatenate_8 (Concatenate)      (None, 32, 32, 224)   0           concatenate_7[0][0]              
+                                                                   stage1_block2_b2_c2_act[0][0]    
 ____________________________________________________________________________________________________
-stage1_ds_c1_act (ELU)           (None, 16, 16, 32)    0           stage1_ds_c1_bn[0][0]            
+stage1_block2_b3_c1_conv (Conv2D (None, 32, 32, 32)    64512       concatenate_8[0][0]              
 ____________________________________________________________________________________________________
-stage1_ds_c2ex_act (ELU)         (None, 16, 16, 32)    0           stage1_ds_c2ex_bn[0][0]          
+stage1_block2_b3_c1_bn (BatchNor (None, 32, 32, 32)    128         stage1_block2_b3_c1_conv[0][0]   
 ____________________________________________________________________________________________________
-concatenate_7 (Concatenate)      (None, 16, 16, 256)   0           max_pooling2d_1[0][0]            
+stage1_block2_b3_c1_act (ELU)    (None, 32, 32, 32)    0           stage1_block2_b3_c1_bn[0][0]     
+____________________________________________________________________________________________________
+stage1_block2_b3_drop (Dropout)  (None, 32, 32, 32)    0           stage1_block2_b3_c1_act[0][0]    
+____________________________________________________________________________________________________
+stage1_block2_b3_c2_conv (Conv2D (None, 32, 32, 32)    9216        stage1_block2_b3_drop[0][0]      
+____________________________________________________________________________________________________
+stage1_block2_b3_c2_bn (BatchNor (None, 32, 32, 32)    128         stage1_block2_b3_c2_conv[0][0]   
+____________________________________________________________________________________________________
+stage1_block2_b3_c2_act (ELU)    (None, 32, 32, 32)    0           stage1_block2_b3_c2_bn[0][0]     
+____________________________________________________________________________________________________
+concatenate_9 (Concatenate)      (None, 32, 32, 256)   0           concatenate_8[0][0]              
+                                                                   stage1_block2_b3_c2_act[0][0]    
+____________________________________________________________________________________________________
+concatenate_10 (Concatenate)     (None, 32, 32, 416)   0           stage1_block1_cm_compress_act[0][
+                                                                   concatenate_9[0][0]              
+____________________________________________________________________________________________________
+stage1_block2_cm_compress_conv ( (None, 32, 32, 208)   86528       concatenate_10[0][0]             
+____________________________________________________________________________________________________
+stage1_block2_cm_compress_bn (Ba (None, 32, 32, 208)   832         stage1_block2_cm_compress_conv[0]
+____________________________________________________________________________________________________
+stage1_block2_cm_compress_act (E (None, 32, 32, 208)   0           stage1_block2_cm_compress_bn[0][0
+____________________________________________________________________________________________________
+stage1_ds_c2sq_conv (Conv2D)     (None, 32, 32, 52)    10816       stage1_block2_cm_compress_act[0][
+____________________________________________________________________________________________________
+stage1_ds_c2sq_bn (BatchNormaliz (None, 32, 32, 52)    208         stage1_ds_c2sq_conv[0][0]        
+____________________________________________________________________________________________________
+stage1_ds_c2sq_act (ELU)         (None, 32, 32, 52)    0           stage1_ds_c2sq_bn[0][0]          
+____________________________________________________________________________________________________
+stage1_ds_c2c_conv (Conv2D)      (None, 32, 32, 52)    24336       stage1_ds_c2sq_act[0][0]         
+____________________________________________________________________________________________________
+stage1_ds_c2c_bn (BatchNormaliza (None, 32, 32, 52)    208         stage1_ds_c2c_conv[0][0]         
+____________________________________________________________________________________________________
+stage1_ds_avgsq_conv (Conv2D)    (None, 32, 32, 104)   21632       stage1_block2_cm_compress_act[0][
+____________________________________________________________________________________________________
+stage1_ds_c2c_act (ELU)          (None, 32, 32, 52)    0           stage1_ds_c2c_bn[0][0]           
+____________________________________________________________________________________________________
+stage1_ds_avgsq_bn (BatchNormali (None, 32, 32, 104)   416         stage1_ds_avgsq_conv[0][0]       
+____________________________________________________________________________________________________
+stage1_ds_c1_conv (Conv2D)       (None, 16, 16, 52)    97344       stage1_block2_cm_compress_act[0][
+____________________________________________________________________________________________________
+stage1_ds_c2ex_conv (Conv2D)     (None, 16, 16, 52)    24336       stage1_ds_c2c_act[0][0]          
+____________________________________________________________________________________________________
+stage1_ds_avgsq_act (ELU)        (None, 32, 32, 104)   0           stage1_ds_avgsq_bn[0][0]         
+____________________________________________________________________________________________________
+stage1_ds_c1_bn (BatchNormalizat (None, 16, 16, 52)    208         stage1_ds_c1_conv[0][0]          
+____________________________________________________________________________________________________
+stage1_ds_c2ex_bn (BatchNormaliz (None, 16, 16, 52)    208         stage1_ds_c2ex_conv[0][0]        
+____________________________________________________________________________________________________
+max_pooling2d_1 (MaxPooling2D)   (None, 16, 16, 208)   0           stage1_block2_cm_compress_act[0][
+____________________________________________________________________________________________________
+average_pooling2d_1 (AveragePool (None, 16, 16, 104)   0           stage1_ds_avgsq_act[0][0]        
+____________________________________________________________________________________________________
+stage1_ds_c1_act (ELU)           (None, 16, 16, 52)    0           stage1_ds_c1_bn[0][0]            
+____________________________________________________________________________________________________
+stage1_ds_c2ex_act (ELU)         (None, 16, 16, 52)    0           stage1_ds_c2ex_bn[0][0]          
+____________________________________________________________________________________________________
+concatenate_11 (Concatenate)     (None, 16, 16, 416)   0           max_pooling2d_1[0][0]            
                                                                    average_pooling2d_1[0][0]        
                                                                    stage1_ds_c1_act[0][0]           
                                                                    stage1_ds_c2ex_act[0][0]         
 ____________________________________________________________________________________________________
-stage1_ds_sq_conv (Conv2D)       (None, 16, 16, 128)   32768       concatenate_7[0][0]              
+stage1_ds_sq_conv (Conv2D)       (None, 16, 16, 208)   86528       concatenate_11[0][0]             
 ____________________________________________________________________________________________________
-stage1_ds_sq_bn (BatchNormalizat (None, 16, 16, 128)   512         stage1_ds_sq_conv[0][0]          
+stage1_ds_sq_bn (BatchNormalizat (None, 16, 16, 208)   832         stage1_ds_sq_conv[0][0]          
 ____________________________________________________________________________________________________
-stage1_ds_sq_act (ELU)           (None, 16, 16, 128)   0           stage1_ds_sq_bn[0][0]            
+stage1_ds_sq_act (ELU)           (None, 16, 16, 208)   0           stage1_ds_sq_bn[0][0]            
 ____________________________________________________________________________________________________
-stage2_block_b0_sq_conv (Conv2D) (None, 16, 16, 192)   24576       stage1_ds_sq_act[0][0]           
+stage2_block1_sq_conv (Conv2D)   (None, 16, 16, 256)   53248       stage1_ds_sq_act[0][0]           
 ____________________________________________________________________________________________________
-stage2_block_b0_sq_bn (BatchNorm (None, 16, 16, 192)   768         stage2_block_b0_sq_conv[0][0]    
+stage2_block1_sq_bn (BatchNormal (None, 16, 16, 256)   1024        stage2_block1_sq_conv[0][0]      
 ____________________________________________________________________________________________________
-stage2_block_b0_sq_act (ELU)     (None, 16, 16, 192)   0           stage2_block_b0_sq_bn[0][0]      
+stage2_block1_sq_act (ELU)       (None, 16, 16, 256)   0           stage2_block1_sq_bn[0][0]        
 ____________________________________________________________________________________________________
-stage2_block_b0_drop (Dropout)   (None, 16, 16, 192)   0           stage2_block_b0_sq_act[0][0]     
+stage2_block1_b0_c1_conv (Conv2D (None, 16, 16, 64)    147456      stage2_block1_sq_act[0][0]       
 ____________________________________________________________________________________________________
-stage2_block_b0_ex_conv (Conv2D) (None, 16, 16, 48)    82944       stage2_block_b0_drop[0][0]       
+stage2_block1_b0_c1_bn (BatchNor (None, 16, 16, 64)    256         stage2_block1_b0_c1_conv[0][0]   
 ____________________________________________________________________________________________________
-stage2_block_b0_ex_bn (BatchNorm (None, 16, 16, 48)    192         stage2_block_b0_ex_conv[0][0]    
+stage2_block1_b0_c1_act (ELU)    (None, 16, 16, 64)    0           stage2_block1_b0_c1_bn[0][0]     
 ____________________________________________________________________________________________________
-stage2_block_b0_ex_act (ELU)     (None, 16, 16, 48)    0           stage2_block_b0_ex_bn[0][0]      
+stage2_block1_b0_drop (Dropout)  (None, 16, 16, 64)    0           stage2_block1_b0_c1_act[0][0]    
 ____________________________________________________________________________________________________
-concatenate_8 (Concatenate)      (None, 16, 16, 176)   0           stage1_ds_sq_act[0][0]           
-                                                                   stage2_block_b0_ex_act[0][0]     
+stage2_block1_b0_c2_conv (Conv2D (None, 16, 16, 64)    36864       stage2_block1_b0_drop[0][0]      
 ____________________________________________________________________________________________________
-stage2_block_b1_sq_conv (Conv2D) (None, 16, 16, 192)   33792       concatenate_8[0][0]              
+stage2_block1_b0_c2_bn (BatchNor (None, 16, 16, 64)    256         stage2_block1_b0_c2_conv[0][0]   
 ____________________________________________________________________________________________________
-stage2_block_b1_sq_bn (BatchNorm (None, 16, 16, 192)   768         stage2_block_b1_sq_conv[0][0]    
+stage2_block1_b0_c2_act (ELU)    (None, 16, 16, 64)    0           stage2_block1_b0_c2_bn[0][0]     
 ____________________________________________________________________________________________________
-stage2_block_b1_sq_act (ELU)     (None, 16, 16, 192)   0           stage2_block_b1_sq_bn[0][0]      
+concatenate_12 (Concatenate)     (None, 16, 16, 320)   0           stage2_block1_sq_act[0][0]       
+                                                                   stage2_block1_b0_c2_act[0][0]    
 ____________________________________________________________________________________________________
-stage2_block_b1_drop (Dropout)   (None, 16, 16, 192)   0           stage2_block_b1_sq_act[0][0]     
+stage2_block1_b1_c1_conv (Conv2D (None, 16, 16, 64)    184320      concatenate_12[0][0]             
 ____________________________________________________________________________________________________
-stage2_block_b1_ex_conv (Conv2D) (None, 16, 16, 48)    82944       stage2_block_b1_drop[0][0]       
+stage2_block1_b1_c1_bn (BatchNor (None, 16, 16, 64)    256         stage2_block1_b1_c1_conv[0][0]   
 ____________________________________________________________________________________________________
-stage2_block_b1_ex_bn (BatchNorm (None, 16, 16, 48)    192         stage2_block_b1_ex_conv[0][0]    
+stage2_block1_b1_c1_act (ELU)    (None, 16, 16, 64)    0           stage2_block1_b1_c1_bn[0][0]     
 ____________________________________________________________________________________________________
-stage2_block_b1_ex_act (ELU)     (None, 16, 16, 48)    0           stage2_block_b1_ex_bn[0][0]      
+stage2_block1_b1_drop (Dropout)  (None, 16, 16, 64)    0           stage2_block1_b1_c1_act[0][0]    
 ____________________________________________________________________________________________________
-concatenate_9 (Concatenate)      (None, 16, 16, 224)   0           concatenate_8[0][0]              
-                                                                   stage2_block_b1_ex_act[0][0]     
+stage2_block1_b1_c2_conv (Conv2D (None, 16, 16, 64)    36864       stage2_block1_b1_drop[0][0]      
 ____________________________________________________________________________________________________
-stage2_block_b2_sq_conv (Conv2D) (None, 16, 16, 192)   43008       concatenate_9[0][0]              
+stage2_block1_b1_c2_bn (BatchNor (None, 16, 16, 64)    256         stage2_block1_b1_c2_conv[0][0]   
 ____________________________________________________________________________________________________
-stage2_block_b2_sq_bn (BatchNorm (None, 16, 16, 192)   768         stage2_block_b2_sq_conv[0][0]    
+stage2_block1_b1_c2_act (ELU)    (None, 16, 16, 64)    0           stage2_block1_b1_c2_bn[0][0]     
 ____________________________________________________________________________________________________
-stage2_block_b2_sq_act (ELU)     (None, 16, 16, 192)   0           stage2_block_b2_sq_bn[0][0]      
+concatenate_13 (Concatenate)     (None, 16, 16, 384)   0           concatenate_12[0][0]             
+                                                                   stage2_block1_b1_c2_act[0][0]    
 ____________________________________________________________________________________________________
-stage2_block_b2_drop (Dropout)   (None, 16, 16, 192)   0           stage2_block_b2_sq_act[0][0]     
+stage2_block1_b2_c1_conv (Conv2D (None, 16, 16, 64)    221184      concatenate_13[0][0]             
 ____________________________________________________________________________________________________
-stage2_block_b2_ex_conv (Conv2D) (None, 16, 16, 48)    82944       stage2_block_b2_drop[0][0]       
+stage2_block1_b2_c1_bn (BatchNor (None, 16, 16, 64)    256         stage2_block1_b2_c1_conv[0][0]   
 ____________________________________________________________________________________________________
-stage2_block_b2_ex_bn (BatchNorm (None, 16, 16, 48)    192         stage2_block_b2_ex_conv[0][0]    
+stage2_block1_b2_c1_act (ELU)    (None, 16, 16, 64)    0           stage2_block1_b2_c1_bn[0][0]     
 ____________________________________________________________________________________________________
-stage2_block_b2_ex_act (ELU)     (None, 16, 16, 48)    0           stage2_block_b2_ex_bn[0][0]      
+stage2_block1_b2_drop (Dropout)  (None, 16, 16, 64)    0           stage2_block1_b2_c1_act[0][0]    
 ____________________________________________________________________________________________________
-concatenate_10 (Concatenate)     (None, 16, 16, 272)   0           concatenate_9[0][0]              
-                                                                   stage2_block_b2_ex_act[0][0]     
+stage2_block1_b2_c2_conv (Conv2D (None, 16, 16, 64)    36864       stage2_block1_b2_drop[0][0]      
 ____________________________________________________________________________________________________
-stage2_block_b3_sq_conv (Conv2D) (None, 16, 16, 192)   52224       concatenate_10[0][0]             
+stage2_block1_b2_c2_bn (BatchNor (None, 16, 16, 64)    256         stage2_block1_b2_c2_conv[0][0]   
 ____________________________________________________________________________________________________
-stage2_block_b3_sq_bn (BatchNorm (None, 16, 16, 192)   768         stage2_block_b3_sq_conv[0][0]    
+stage2_block1_b2_c2_act (ELU)    (None, 16, 16, 64)    0           stage2_block1_b2_c2_bn[0][0]     
 ____________________________________________________________________________________________________
-stage2_block_b3_sq_act (ELU)     (None, 16, 16, 192)   0           stage2_block_b3_sq_bn[0][0]      
+concatenate_14 (Concatenate)     (None, 16, 16, 448)   0           concatenate_13[0][0]             
+                                                                   stage2_block1_b2_c2_act[0][0]    
 ____________________________________________________________________________________________________
-stage2_block_b3_drop (Dropout)   (None, 16, 16, 192)   0           stage2_block_b3_sq_act[0][0]     
+stage2_block1_b3_c1_conv (Conv2D (None, 16, 16, 64)    258048      concatenate_14[0][0]             
 ____________________________________________________________________________________________________
-stage2_block_b3_ex_conv (Conv2D) (None, 16, 16, 48)    82944       stage2_block_b3_drop[0][0]       
+stage2_block1_b3_c1_bn (BatchNor (None, 16, 16, 64)    256         stage2_block1_b3_c1_conv[0][0]   
 ____________________________________________________________________________________________________
-stage2_block_b3_ex_bn (BatchNorm (None, 16, 16, 48)    192         stage2_block_b3_ex_conv[0][0]    
+stage2_block1_b3_c1_act (ELU)    (None, 16, 16, 64)    0           stage2_block1_b3_c1_bn[0][0]     
 ____________________________________________________________________________________________________
-stage2_block_b3_ex_act (ELU)     (None, 16, 16, 48)    0           stage2_block_b3_ex_bn[0][0]      
+stage2_block1_b3_drop (Dropout)  (None, 16, 16, 64)    0           stage2_block1_b3_c1_act[0][0]    
 ____________________________________________________________________________________________________
-concatenate_11 (Concatenate)     (None, 16, 16, 320)   0           concatenate_10[0][0]             
-                                                                   stage2_block_b3_ex_act[0][0]     
+stage2_block1_b3_c2_conv (Conv2D (None, 16, 16, 64)    36864       stage2_block1_b3_drop[0][0]      
 ____________________________________________________________________________________________________
-stage2_block_b4_sq_conv (Conv2D) (None, 16, 16, 192)   61440       concatenate_11[0][0]             
+stage2_block1_b3_c2_bn (BatchNor (None, 16, 16, 64)    256         stage2_block1_b3_c2_conv[0][0]   
 ____________________________________________________________________________________________________
-stage2_block_b4_sq_bn (BatchNorm (None, 16, 16, 192)   768         stage2_block_b4_sq_conv[0][0]    
+stage2_block1_b3_c2_act (ELU)    (None, 16, 16, 64)    0           stage2_block1_b3_c2_bn[0][0]     
 ____________________________________________________________________________________________________
-stage2_block_b4_sq_act (ELU)     (None, 16, 16, 192)   0           stage2_block_b4_sq_bn[0][0]      
+concatenate_15 (Concatenate)     (None, 16, 16, 512)   0           concatenate_14[0][0]             
+                                                                   stage2_block1_b3_c2_act[0][0]    
 ____________________________________________________________________________________________________
-stage2_block_b4_drop (Dropout)   (None, 16, 16, 192)   0           stage2_block_b4_sq_act[0][0]     
+concatenate_16 (Concatenate)     (None, 16, 16, 720)   0           stage1_ds_sq_act[0][0]           
+                                                                   concatenate_15[0][0]             
 ____________________________________________________________________________________________________
-stage2_block_b4_ex_conv (Conv2D) (None, 16, 16, 48)    82944       stage2_block_b4_drop[0][0]       
+stage2_block1_cm_compress_conv ( (None, 16, 16, 360)   259200      concatenate_16[0][0]             
 ____________________________________________________________________________________________________
-stage2_block_b4_ex_bn (BatchNorm (None, 16, 16, 48)    192         stage2_block_b4_ex_conv[0][0]    
+stage2_block1_cm_compress_bn (Ba (None, 16, 16, 360)   1440        stage2_block1_cm_compress_conv[0]
 ____________________________________________________________________________________________________
-stage2_block_b4_ex_act (ELU)     (None, 16, 16, 48)    0           stage2_block_b4_ex_bn[0][0]      
+stage2_block1_cm_compress_act (E (None, 16, 16, 360)   0           stage2_block1_cm_compress_bn[0][0
 ____________________________________________________________________________________________________
-concatenate_12 (Concatenate)     (None, 16, 16, 368)   0           concatenate_11[0][0]             
-                                                                   stage2_block_b4_ex_act[0][0]     
+stage2_block2_sq_conv (Conv2D)   (None, 16, 16, 256)   92160       stage2_block1_cm_compress_act[0][
 ____________________________________________________________________________________________________
-stage2_block_b5_sq_conv (Conv2D) (None, 16, 16, 192)   70656       concatenate_12[0][0]             
+stage2_block2_sq_bn (BatchNormal (None, 16, 16, 256)   1024        stage2_block2_sq_conv[0][0]      
 ____________________________________________________________________________________________________
-stage2_block_b5_sq_bn (BatchNorm (None, 16, 16, 192)   768         stage2_block_b5_sq_conv[0][0]    
+stage2_block2_sq_act (ELU)       (None, 16, 16, 256)   0           stage2_block2_sq_bn[0][0]        
 ____________________________________________________________________________________________________
-stage2_block_b5_sq_act (ELU)     (None, 16, 16, 192)   0           stage2_block_b5_sq_bn[0][0]      
+stage2_block2_b0_c1_conv (Conv2D (None, 16, 16, 64)    147456      stage2_block2_sq_act[0][0]       
 ____________________________________________________________________________________________________
-stage2_block_b5_drop (Dropout)   (None, 16, 16, 192)   0           stage2_block_b5_sq_act[0][0]     
+stage2_block2_b0_c1_bn (BatchNor (None, 16, 16, 64)    256         stage2_block2_b0_c1_conv[0][0]   
 ____________________________________________________________________________________________________
-stage2_block_b5_ex_conv (Conv2D) (None, 16, 16, 48)    82944       stage2_block_b5_drop[0][0]       
+stage2_block2_b0_c1_act (ELU)    (None, 16, 16, 64)    0           stage2_block2_b0_c1_bn[0][0]     
 ____________________________________________________________________________________________________
-stage2_block_b5_ex_bn (BatchNorm (None, 16, 16, 48)    192         stage2_block_b5_ex_conv[0][0]    
+stage2_block2_b0_drop (Dropout)  (None, 16, 16, 64)    0           stage2_block2_b0_c1_act[0][0]    
 ____________________________________________________________________________________________________
-stage2_block_b5_ex_act (ELU)     (None, 16, 16, 48)    0           stage2_block_b5_ex_bn[0][0]      
+stage2_block2_b0_c2_conv (Conv2D (None, 16, 16, 64)    36864       stage2_block2_b0_drop[0][0]      
 ____________________________________________________________________________________________________
-concatenate_13 (Concatenate)     (None, 16, 16, 416)   0           concatenate_12[0][0]             
-                                                                   stage2_block_b5_ex_act[0][0]     
+stage2_block2_b0_c2_bn (BatchNor (None, 16, 16, 64)    256         stage2_block2_b0_c2_conv[0][0]   
 ____________________________________________________________________________________________________
-stage2_block_sq_conv (Conv2D)    (None, 16, 16, 208)   86528       concatenate_13[0][0]             
+stage2_block2_b0_c2_act (ELU)    (None, 16, 16, 64)    0           stage2_block2_b0_c2_bn[0][0]     
 ____________________________________________________________________________________________________
-stage2_block_sq_bn (BatchNormali (None, 16, 16, 208)   832         stage2_block_sq_conv[0][0]       
+concatenate_17 (Concatenate)     (None, 16, 16, 320)   0           stage2_block2_sq_act[0][0]       
+                                                                   stage2_block2_b0_c2_act[0][0]    
 ____________________________________________________________________________________________________
-stage2_block_sq_act (ELU)        (None, 16, 16, 208)   0           stage2_block_sq_bn[0][0]         
+stage2_block2_b1_c1_conv (Conv2D (None, 16, 16, 64)    184320      concatenate_17[0][0]             
 ____________________________________________________________________________________________________
-stage2_ds_c2sq_conv (Conv2D)     (None, 16, 16, 52)    10816       stage2_block_sq_act[0][0]        
+stage2_block2_b1_c1_bn (BatchNor (None, 16, 16, 64)    256         stage2_block2_b1_c1_conv[0][0]   
 ____________________________________________________________________________________________________
-stage2_ds_c2sq_bn (BatchNormaliz (None, 16, 16, 52)    208         stage2_ds_c2sq_conv[0][0]        
+stage2_block2_b1_c1_act (ELU)    (None, 16, 16, 64)    0           stage2_block2_b1_c1_bn[0][0]     
 ____________________________________________________________________________________________________
-stage2_ds_c2sq_act (ELU)         (None, 16, 16, 52)    0           stage2_ds_c2sq_bn[0][0]          
+stage2_block2_b1_drop (Dropout)  (None, 16, 16, 64)    0           stage2_block2_b1_c1_act[0][0]    
 ____________________________________________________________________________________________________
-stage2_ds_c2c_conv (Conv2D)      (None, 16, 16, 52)    24336       stage2_ds_c2sq_act[0][0]         
+stage2_block2_b1_c2_conv (Conv2D (None, 16, 16, 64)    36864       stage2_block2_b1_drop[0][0]      
 ____________________________________________________________________________________________________
-stage2_ds_c2c_bn (BatchNormaliza (None, 16, 16, 52)    208         stage2_ds_c2c_conv[0][0]         
+stage2_block2_b1_c2_bn (BatchNor (None, 16, 16, 64)    256         stage2_block2_b1_c2_conv[0][0]   
 ____________________________________________________________________________________________________
-stage2_ds_avgsq_conv (Conv2D)    (None, 16, 16, 104)   21632       stage2_block_sq_act[0][0]        
+stage2_block2_b1_c2_act (ELU)    (None, 16, 16, 64)    0           stage2_block2_b1_c2_bn[0][0]     
 ____________________________________________________________________________________________________
-stage2_ds_c2c_act (ELU)          (None, 16, 16, 52)    0           stage2_ds_c2c_bn[0][0]           
+concatenate_18 (Concatenate)     (None, 16, 16, 384)   0           concatenate_17[0][0]             
+                                                                   stage2_block2_b1_c2_act[0][0]    
 ____________________________________________________________________________________________________
-stage2_ds_avgsq_bn (BatchNormali (None, 16, 16, 104)   416         stage2_ds_avgsq_conv[0][0]       
+stage2_block2_b2_c1_conv (Conv2D (None, 16, 16, 64)    221184      concatenate_18[0][0]             
 ____________________________________________________________________________________________________
-stage2_ds_c1_conv (Conv2D)       (None, 8, 8, 52)      97344       stage2_block_sq_act[0][0]        
+stage2_block2_b2_c1_bn (BatchNor (None, 16, 16, 64)    256         stage2_block2_b2_c1_conv[0][0]   
 ____________________________________________________________________________________________________
-stage2_ds_c2ex_conv (Conv2D)     (None, 8, 8, 52)      24336       stage2_ds_c2c_act[0][0]          
+stage2_block2_b2_c1_act (ELU)    (None, 16, 16, 64)    0           stage2_block2_b2_c1_bn[0][0]     
 ____________________________________________________________________________________________________
-stage2_ds_avgsq_act (ELU)        (None, 16, 16, 104)   0           stage2_ds_avgsq_bn[0][0]         
+stage2_block2_b2_drop (Dropout)  (None, 16, 16, 64)    0           stage2_block2_b2_c1_act[0][0]    
 ____________________________________________________________________________________________________
-stage2_ds_c1_bn (BatchNormalizat (None, 8, 8, 52)      208         stage2_ds_c1_conv[0][0]          
+stage2_block2_b2_c2_conv (Conv2D (None, 16, 16, 64)    36864       stage2_block2_b2_drop[0][0]      
 ____________________________________________________________________________________________________
-stage2_ds_c2ex_bn (BatchNormaliz (None, 8, 8, 52)      208         stage2_ds_c2ex_conv[0][0]        
+stage2_block2_b2_c2_bn (BatchNor (None, 16, 16, 64)    256         stage2_block2_b2_c2_conv[0][0]   
 ____________________________________________________________________________________________________
-max_pooling2d_2 (MaxPooling2D)   (None, 8, 8, 208)     0           stage2_block_sq_act[0][0]        
+stage2_block2_b2_c2_act (ELU)    (None, 16, 16, 64)    0           stage2_block2_b2_c2_bn[0][0]     
 ____________________________________________________________________________________________________
-average_pooling2d_2 (AveragePool (None, 8, 8, 104)     0           stage2_ds_avgsq_act[0][0]        
+concatenate_19 (Concatenate)     (None, 16, 16, 448)   0           concatenate_18[0][0]             
+                                                                   stage2_block2_b2_c2_act[0][0]    
 ____________________________________________________________________________________________________
-stage2_ds_c1_act (ELU)           (None, 8, 8, 52)      0           stage2_ds_c1_bn[0][0]            
+stage2_block2_b3_c1_conv (Conv2D (None, 16, 16, 64)    258048      concatenate_19[0][0]             
 ____________________________________________________________________________________________________
-stage2_ds_c2ex_act (ELU)         (None, 8, 8, 52)      0           stage2_ds_c2ex_bn[0][0]          
+stage2_block2_b3_c1_bn (BatchNor (None, 16, 16, 64)    256         stage2_block2_b3_c1_conv[0][0]   
 ____________________________________________________________________________________________________
-concatenate_14 (Concatenate)     (None, 8, 8, 416)     0           max_pooling2d_2[0][0]            
+stage2_block2_b3_c1_act (ELU)    (None, 16, 16, 64)    0           stage2_block2_b3_c1_bn[0][0]     
+____________________________________________________________________________________________________
+stage2_block2_b3_drop (Dropout)  (None, 16, 16, 64)    0           stage2_block2_b3_c1_act[0][0]    
+____________________________________________________________________________________________________
+stage2_block2_b3_c2_conv (Conv2D (None, 16, 16, 64)    36864       stage2_block2_b3_drop[0][0]      
+____________________________________________________________________________________________________
+stage2_block2_b3_c2_bn (BatchNor (None, 16, 16, 64)    256         stage2_block2_b3_c2_conv[0][0]   
+____________________________________________________________________________________________________
+stage2_block2_b3_c2_act (ELU)    (None, 16, 16, 64)    0           stage2_block2_b3_c2_bn[0][0]     
+____________________________________________________________________________________________________
+concatenate_20 (Concatenate)     (None, 16, 16, 512)   0           concatenate_19[0][0]             
+                                                                   stage2_block2_b3_c2_act[0][0]    
+____________________________________________________________________________________________________
+concatenate_21 (Concatenate)     (None, 16, 16, 872)   0           stage2_block1_cm_compress_act[0][
+                                                                   concatenate_20[0][0]             
+____________________________________________________________________________________________________
+stage2_block2_cm_compress_conv ( (None, 16, 16, 436)   380192      concatenate_21[0][0]             
+____________________________________________________________________________________________________
+stage2_block2_cm_compress_bn (Ba (None, 16, 16, 436)   1744        stage2_block2_cm_compress_conv[0]
+____________________________________________________________________________________________________
+stage2_block2_cm_compress_act (E (None, 16, 16, 436)   0           stage2_block2_cm_compress_bn[0][0
+____________________________________________________________________________________________________
+stage2_ds_c2sq_conv (Conv2D)     (None, 16, 16, 109)   47524       stage2_block2_cm_compress_act[0][
+____________________________________________________________________________________________________
+stage2_ds_c2sq_bn (BatchNormaliz (None, 16, 16, 109)   436         stage2_ds_c2sq_conv[0][0]        
+____________________________________________________________________________________________________
+stage2_ds_c2sq_act (ELU)         (None, 16, 16, 109)   0           stage2_ds_c2sq_bn[0][0]          
+____________________________________________________________________________________________________
+stage2_ds_c2c_conv (Conv2D)      (None, 16, 16, 109)   106929      stage2_ds_c2sq_act[0][0]         
+____________________________________________________________________________________________________
+stage2_ds_c2c_bn (BatchNormaliza (None, 16, 16, 109)   436         stage2_ds_c2c_conv[0][0]         
+____________________________________________________________________________________________________
+stage2_ds_avgsq_conv (Conv2D)    (None, 16, 16, 218)   95048       stage2_block2_cm_compress_act[0][
+____________________________________________________________________________________________________
+stage2_ds_c2c_act (ELU)          (None, 16, 16, 109)   0           stage2_ds_c2c_bn[0][0]           
+____________________________________________________________________________________________________
+stage2_ds_avgsq_bn (BatchNormali (None, 16, 16, 218)   872         stage2_ds_avgsq_conv[0][0]       
+____________________________________________________________________________________________________
+stage2_ds_c1_conv (Conv2D)       (None, 8, 8, 109)     427716      stage2_block2_cm_compress_act[0][
+____________________________________________________________________________________________________
+stage2_ds_c2ex_conv (Conv2D)     (None, 8, 8, 109)     106929      stage2_ds_c2c_act[0][0]          
+____________________________________________________________________________________________________
+stage2_ds_avgsq_act (ELU)        (None, 16, 16, 218)   0           stage2_ds_avgsq_bn[0][0]         
+____________________________________________________________________________________________________
+stage2_ds_c1_bn (BatchNormalizat (None, 8, 8, 109)     436         stage2_ds_c1_conv[0][0]          
+____________________________________________________________________________________________________
+stage2_ds_c2ex_bn (BatchNormaliz (None, 8, 8, 109)     436         stage2_ds_c2ex_conv[0][0]        
+____________________________________________________________________________________________________
+max_pooling2d_2 (MaxPooling2D)   (None, 8, 8, 436)     0           stage2_block2_cm_compress_act[0][
+____________________________________________________________________________________________________
+average_pooling2d_2 (AveragePool (None, 8, 8, 218)     0           stage2_ds_avgsq_act[0][0]        
+____________________________________________________________________________________________________
+stage2_ds_c1_act (ELU)           (None, 8, 8, 109)     0           stage2_ds_c1_bn[0][0]            
+____________________________________________________________________________________________________
+stage2_ds_c2ex_act (ELU)         (None, 8, 8, 109)     0           stage2_ds_c2ex_bn[0][0]          
+____________________________________________________________________________________________________
+concatenate_22 (Concatenate)     (None, 8, 8, 872)     0           max_pooling2d_2[0][0]            
                                                                    average_pooling2d_2[0][0]        
                                                                    stage2_ds_c1_act[0][0]           
                                                                    stage2_ds_c2ex_act[0][0]         
 ____________________________________________________________________________________________________
-stage2_ds_sq_conv (Conv2D)       (None, 8, 8, 208)     86528       concatenate_14[0][0]             
+stage2_ds_sq_conv (Conv2D)       (None, 8, 8, 436)     380192      concatenate_22[0][0]             
 ____________________________________________________________________________________________________
-stage2_ds_sq_bn (BatchNormalizat (None, 8, 8, 208)     832         stage2_ds_sq_conv[0][0]          
+stage2_ds_sq_bn (BatchNormalizat (None, 8, 8, 436)     1744        stage2_ds_sq_conv[0][0]          
 ____________________________________________________________________________________________________
-stage2_ds_sq_act (ELU)           (None, 8, 8, 208)     0           stage2_ds_sq_bn[0][0]            
+stage2_ds_sq_act (ELU)           (None, 8, 8, 436)     0           stage2_ds_sq_bn[0][0]            
 ____________________________________________________________________________________________________
-stage3_block_b0_sq_conv (Conv2D) (None, 8, 8, 256)     53248       stage2_ds_sq_act[0][0]           
+stage3_block1_sq_conv (Conv2D)   (None, 8, 8, 384)     167424      stage2_ds_sq_act[0][0]           
 ____________________________________________________________________________________________________
-stage3_block_b0_sq_bn (BatchNorm (None, 8, 8, 256)     1024        stage3_block_b0_sq_conv[0][0]    
+stage3_block1_sq_bn (BatchNormal (None, 8, 8, 384)     1536        stage3_block1_sq_conv[0][0]      
 ____________________________________________________________________________________________________
-stage3_block_b0_sq_act (ELU)     (None, 8, 8, 256)     0           stage3_block_b0_sq_bn[0][0]      
+stage3_block1_sq_act (ELU)       (None, 8, 8, 384)     0           stage3_block1_sq_bn[0][0]        
 ____________________________________________________________________________________________________
-stage3_block_b0_drop (Dropout)   (None, 8, 8, 256)     0           stage3_block_b0_sq_act[0][0]     
+stage3_block1_b0_c1_conv (Conv2D (None, 8, 8, 96)      331776      stage3_block1_sq_act[0][0]       
 ____________________________________________________________________________________________________
-stage3_block_b0_ex_conv (Conv2D) (None, 8, 8, 64)      147456      stage3_block_b0_drop[0][0]       
+stage3_block1_b0_c1_bn (BatchNor (None, 8, 8, 96)      384         stage3_block1_b0_c1_conv[0][0]   
 ____________________________________________________________________________________________________
-stage3_block_b0_ex_bn (BatchNorm (None, 8, 8, 64)      256         stage3_block_b0_ex_conv[0][0]    
+stage3_block1_b0_c1_act (ELU)    (None, 8, 8, 96)      0           stage3_block1_b0_c1_bn[0][0]     
 ____________________________________________________________________________________________________
-stage3_block_b0_ex_act (ELU)     (None, 8, 8, 64)      0           stage3_block_b0_ex_bn[0][0]      
+stage3_block1_b0_drop (Dropout)  (None, 8, 8, 96)      0           stage3_block1_b0_c1_act[0][0]    
 ____________________________________________________________________________________________________
-concatenate_15 (Concatenate)     (None, 8, 8, 272)     0           stage2_ds_sq_act[0][0]           
-                                                                   stage3_block_b0_ex_act[0][0]     
+stage3_block1_b0_c2_conv (Conv2D (None, 8, 8, 96)      82944       stage3_block1_b0_drop[0][0]      
 ____________________________________________________________________________________________________
-stage3_block_b1_sq_conv (Conv2D) (None, 8, 8, 256)     69632       concatenate_15[0][0]             
+stage3_block1_b0_c2_bn (BatchNor (None, 8, 8, 96)      384         stage3_block1_b0_c2_conv[0][0]   
 ____________________________________________________________________________________________________
-stage3_block_b1_sq_bn (BatchNorm (None, 8, 8, 256)     1024        stage3_block_b1_sq_conv[0][0]    
+stage3_block1_b0_c2_act (ELU)    (None, 8, 8, 96)      0           stage3_block1_b0_c2_bn[0][0]     
 ____________________________________________________________________________________________________
-stage3_block_b1_sq_act (ELU)     (None, 8, 8, 256)     0           stage3_block_b1_sq_bn[0][0]      
+concatenate_23 (Concatenate)     (None, 8, 8, 480)     0           stage3_block1_sq_act[0][0]       
+                                                                   stage3_block1_b0_c2_act[0][0]    
 ____________________________________________________________________________________________________
-stage3_block_b1_drop (Dropout)   (None, 8, 8, 256)     0           stage3_block_b1_sq_act[0][0]     
+stage3_block1_b1_c1_conv (Conv2D (None, 8, 8, 96)      414720      concatenate_23[0][0]             
 ____________________________________________________________________________________________________
-stage3_block_b1_ex_conv (Conv2D) (None, 8, 8, 64)      147456      stage3_block_b1_drop[0][0]       
+stage3_block1_b1_c1_bn (BatchNor (None, 8, 8, 96)      384         stage3_block1_b1_c1_conv[0][0]   
 ____________________________________________________________________________________________________
-stage3_block_b1_ex_bn (BatchNorm (None, 8, 8, 64)      256         stage3_block_b1_ex_conv[0][0]    
+stage3_block1_b1_c1_act (ELU)    (None, 8, 8, 96)      0           stage3_block1_b1_c1_bn[0][0]     
 ____________________________________________________________________________________________________
-stage3_block_b1_ex_act (ELU)     (None, 8, 8, 64)      0           stage3_block_b1_ex_bn[0][0]      
+stage3_block1_b1_drop (Dropout)  (None, 8, 8, 96)      0           stage3_block1_b1_c1_act[0][0]    
 ____________________________________________________________________________________________________
-concatenate_16 (Concatenate)     (None, 8, 8, 336)     0           concatenate_15[0][0]             
-                                                                   stage3_block_b1_ex_act[0][0]     
+stage3_block1_b1_c2_conv (Conv2D (None, 8, 8, 96)      82944       stage3_block1_b1_drop[0][0]      
 ____________________________________________________________________________________________________
-stage3_block_b2_sq_conv (Conv2D) (None, 8, 8, 256)     86016       concatenate_16[0][0]             
+stage3_block1_b1_c2_bn (BatchNor (None, 8, 8, 96)      384         stage3_block1_b1_c2_conv[0][0]   
 ____________________________________________________________________________________________________
-stage3_block_b2_sq_bn (BatchNorm (None, 8, 8, 256)     1024        stage3_block_b2_sq_conv[0][0]    
+stage3_block1_b1_c2_act (ELU)    (None, 8, 8, 96)      0           stage3_block1_b1_c2_bn[0][0]     
 ____________________________________________________________________________________________________
-stage3_block_b2_sq_act (ELU)     (None, 8, 8, 256)     0           stage3_block_b2_sq_bn[0][0]      
+concatenate_24 (Concatenate)     (None, 8, 8, 576)     0           concatenate_23[0][0]             
+                                                                   stage3_block1_b1_c2_act[0][0]    
 ____________________________________________________________________________________________________
-stage3_block_b2_drop (Dropout)   (None, 8, 8, 256)     0           stage3_block_b2_sq_act[0][0]     
+stage3_block1_b2_c1_conv (Conv2D (None, 8, 8, 96)      497664      concatenate_24[0][0]             
 ____________________________________________________________________________________________________
-stage3_block_b2_ex_conv (Conv2D) (None, 8, 8, 64)      147456      stage3_block_b2_drop[0][0]       
+stage3_block1_b2_c1_bn (BatchNor (None, 8, 8, 96)      384         stage3_block1_b2_c1_conv[0][0]   
 ____________________________________________________________________________________________________
-stage3_block_b2_ex_bn (BatchNorm (None, 8, 8, 64)      256         stage3_block_b2_ex_conv[0][0]    
+stage3_block1_b2_c1_act (ELU)    (None, 8, 8, 96)      0           stage3_block1_b2_c1_bn[0][0]     
 ____________________________________________________________________________________________________
-stage3_block_b2_ex_act (ELU)     (None, 8, 8, 64)      0           stage3_block_b2_ex_bn[0][0]      
+stage3_block1_b2_drop (Dropout)  (None, 8, 8, 96)      0           stage3_block1_b2_c1_act[0][0]    
 ____________________________________________________________________________________________________
-concatenate_17 (Concatenate)     (None, 8, 8, 400)     0           concatenate_16[0][0]             
-                                                                   stage3_block_b2_ex_act[0][0]     
+stage3_block1_b2_c2_conv (Conv2D (None, 8, 8, 96)      82944       stage3_block1_b2_drop[0][0]      
 ____________________________________________________________________________________________________
-stage3_block_b3_sq_conv (Conv2D) (None, 8, 8, 256)     102400      concatenate_17[0][0]             
+stage3_block1_b2_c2_bn (BatchNor (None, 8, 8, 96)      384         stage3_block1_b2_c2_conv[0][0]   
 ____________________________________________________________________________________________________
-stage3_block_b3_sq_bn (BatchNorm (None, 8, 8, 256)     1024        stage3_block_b3_sq_conv[0][0]    
+stage3_block1_b2_c2_act (ELU)    (None, 8, 8, 96)      0           stage3_block1_b2_c2_bn[0][0]     
 ____________________________________________________________________________________________________
-stage3_block_b3_sq_act (ELU)     (None, 8, 8, 256)     0           stage3_block_b3_sq_bn[0][0]      
+concatenate_25 (Concatenate)     (None, 8, 8, 672)     0           concatenate_24[0][0]             
+                                                                   stage3_block1_b2_c2_act[0][0]    
 ____________________________________________________________________________________________________
-stage3_block_b3_drop (Dropout)   (None, 8, 8, 256)     0           stage3_block_b3_sq_act[0][0]     
+stage3_block1_b3_c1_conv (Conv2D (None, 8, 8, 96)      580608      concatenate_25[0][0]             
 ____________________________________________________________________________________________________
-stage3_block_b3_ex_conv (Conv2D) (None, 8, 8, 64)      147456      stage3_block_b3_drop[0][0]       
+stage3_block1_b3_c1_bn (BatchNor (None, 8, 8, 96)      384         stage3_block1_b3_c1_conv[0][0]   
 ____________________________________________________________________________________________________
-stage3_block_b3_ex_bn (BatchNorm (None, 8, 8, 64)      256         stage3_block_b3_ex_conv[0][0]    
+stage3_block1_b3_c1_act (ELU)    (None, 8, 8, 96)      0           stage3_block1_b3_c1_bn[0][0]     
 ____________________________________________________________________________________________________
-stage3_block_b3_ex_act (ELU)     (None, 8, 8, 64)      0           stage3_block_b3_ex_bn[0][0]      
+stage3_block1_b3_drop (Dropout)  (None, 8, 8, 96)      0           stage3_block1_b3_c1_act[0][0]    
 ____________________________________________________________________________________________________
-concatenate_18 (Concatenate)     (None, 8, 8, 464)     0           concatenate_17[0][0]             
-                                                                   stage3_block_b3_ex_act[0][0]     
+stage3_block1_b3_c2_conv (Conv2D (None, 8, 8, 96)      82944       stage3_block1_b3_drop[0][0]      
 ____________________________________________________________________________________________________
-stage3_block_b4_sq_conv (Conv2D) (None, 8, 8, 256)     118784      concatenate_18[0][0]             
+stage3_block1_b3_c2_bn (BatchNor (None, 8, 8, 96)      384         stage3_block1_b3_c2_conv[0][0]   
 ____________________________________________________________________________________________________
-stage3_block_b4_sq_bn (BatchNorm (None, 8, 8, 256)     1024        stage3_block_b4_sq_conv[0][0]    
+stage3_block1_b3_c2_act (ELU)    (None, 8, 8, 96)      0           stage3_block1_b3_c2_bn[0][0]     
 ____________________________________________________________________________________________________
-stage3_block_b4_sq_act (ELU)     (None, 8, 8, 256)     0           stage3_block_b4_sq_bn[0][0]      
+concatenate_26 (Concatenate)     (None, 8, 8, 768)     0           concatenate_25[0][0]             
+                                                                   stage3_block1_b3_c2_act[0][0]    
 ____________________________________________________________________________________________________
-stage3_block_b4_drop (Dropout)   (None, 8, 8, 256)     0           stage3_block_b4_sq_act[0][0]     
+concatenate_27 (Concatenate)     (None, 8, 8, 1204)    0           stage2_ds_sq_act[0][0]           
+                                                                   concatenate_26[0][0]             
 ____________________________________________________________________________________________________
-stage3_block_b4_ex_conv (Conv2D) (None, 8, 8, 64)      147456      stage3_block_b4_drop[0][0]       
+stage3_block1_cm_compress_conv ( (None, 8, 8, 602)     724808      concatenate_27[0][0]             
 ____________________________________________________________________________________________________
-stage3_block_b4_ex_bn (BatchNorm (None, 8, 8, 64)      256         stage3_block_b4_ex_conv[0][0]    
+stage3_block1_cm_compress_bn (Ba (None, 8, 8, 602)     2408        stage3_block1_cm_compress_conv[0]
 ____________________________________________________________________________________________________
-stage3_block_b4_ex_act (ELU)     (None, 8, 8, 64)      0           stage3_block_b4_ex_bn[0][0]      
+stage3_block1_cm_compress_act (E (None, 8, 8, 602)     0           stage3_block1_cm_compress_bn[0][0
 ____________________________________________________________________________________________________
-concatenate_19 (Concatenate)     (None, 8, 8, 528)     0           concatenate_18[0][0]             
-                                                                   stage3_block_b4_ex_act[0][0]     
+stage3_block2_sq_conv (Conv2D)   (None, 8, 8, 384)     231168      stage3_block1_cm_compress_act[0][
 ____________________________________________________________________________________________________
-stage3_block_b5_sq_conv (Conv2D) (None, 8, 8, 256)     135168      concatenate_19[0][0]             
+stage3_block2_sq_bn (BatchNormal (None, 8, 8, 384)     1536        stage3_block2_sq_conv[0][0]      
 ____________________________________________________________________________________________________
-stage3_block_b5_sq_bn (BatchNorm (None, 8, 8, 256)     1024        stage3_block_b5_sq_conv[0][0]    
+stage3_block2_sq_act (ELU)       (None, 8, 8, 384)     0           stage3_block2_sq_bn[0][0]        
 ____________________________________________________________________________________________________
-stage3_block_b5_sq_act (ELU)     (None, 8, 8, 256)     0           stage3_block_b5_sq_bn[0][0]      
+stage3_block2_b0_c1_conv (Conv2D (None, 8, 8, 96)      331776      stage3_block2_sq_act[0][0]       
 ____________________________________________________________________________________________________
-stage3_block_b5_drop (Dropout)   (None, 8, 8, 256)     0           stage3_block_b5_sq_act[0][0]     
+stage3_block2_b0_c1_bn (BatchNor (None, 8, 8, 96)      384         stage3_block2_b0_c1_conv[0][0]   
 ____________________________________________________________________________________________________
-stage3_block_b5_ex_conv (Conv2D) (None, 8, 8, 64)      147456      stage3_block_b5_drop[0][0]       
+stage3_block2_b0_c1_act (ELU)    (None, 8, 8, 96)      0           stage3_block2_b0_c1_bn[0][0]     
 ____________________________________________________________________________________________________
-stage3_block_b5_ex_bn (BatchNorm (None, 8, 8, 64)      256         stage3_block_b5_ex_conv[0][0]    
+stage3_block2_b0_drop (Dropout)  (None, 8, 8, 96)      0           stage3_block2_b0_c1_act[0][0]    
 ____________________________________________________________________________________________________
-stage3_block_b5_ex_act (ELU)     (None, 8, 8, 64)      0           stage3_block_b5_ex_bn[0][0]      
+stage3_block2_b0_c2_conv (Conv2D (None, 8, 8, 96)      82944       stage3_block2_b0_drop[0][0]      
 ____________________________________________________________________________________________________
-concatenate_20 (Concatenate)     (None, 8, 8, 592)     0           concatenate_19[0][0]             
-                                                                   stage3_block_b5_ex_act[0][0]     
+stage3_block2_b0_c2_bn (BatchNor (None, 8, 8, 96)      384         stage3_block2_b0_c2_conv[0][0]   
 ____________________________________________________________________________________________________
-stage3_block_sq_conv (Conv2D)    (None, 8, 8, 296)     175232      concatenate_20[0][0]             
+stage3_block2_b0_c2_act (ELU)    (None, 8, 8, 96)      0           stage3_block2_b0_c2_bn[0][0]     
 ____________________________________________________________________________________________________
-stage3_block_sq_bn (BatchNormali (None, 8, 8, 296)     1184        stage3_block_sq_conv[0][0]       
+concatenate_28 (Concatenate)     (None, 8, 8, 480)     0           stage3_block2_sq_act[0][0]       
+                                                                   stage3_block2_b0_c2_act[0][0]    
 ____________________________________________________________________________________________________
-stage3_block_sq_act (ELU)        (None, 8, 8, 296)     0           stage3_block_sq_bn[0][0]         
+stage3_block2_b1_c1_conv (Conv2D (None, 8, 8, 96)      414720      concatenate_28[0][0]             
 ____________________________________________________________________________________________________
-global_average_pooling2d_1 (Glob (None, 296)           0           stage3_block_sq_act[0][0]        
+stage3_block2_b1_c1_bn (BatchNor (None, 8, 8, 96)      384         stage3_block2_b1_c1_conv[0][0]   
 ____________________________________________________________________________________________________
-dense_1 (Dense)                  (None, 100)           29700       global_average_pooling2d_1[0][0] 
+stage3_block2_b1_c1_act (ELU)    (None, 8, 8, 96)      0           stage3_block2_b1_c1_bn[0][0]     
+____________________________________________________________________________________________________
+stage3_block2_b1_drop (Dropout)  (None, 8, 8, 96)      0           stage3_block2_b1_c1_act[0][0]    
+____________________________________________________________________________________________________
+stage3_block2_b1_c2_conv (Conv2D (None, 8, 8, 96)      82944       stage3_block2_b1_drop[0][0]      
+____________________________________________________________________________________________________
+stage3_block2_b1_c2_bn (BatchNor (None, 8, 8, 96)      384         stage3_block2_b1_c2_conv[0][0]   
+____________________________________________________________________________________________________
+stage3_block2_b1_c2_act (ELU)    (None, 8, 8, 96)      0           stage3_block2_b1_c2_bn[0][0]     
+____________________________________________________________________________________________________
+concatenate_29 (Concatenate)     (None, 8, 8, 576)     0           concatenate_28[0][0]             
+                                                                   stage3_block2_b1_c2_act[0][0]    
+____________________________________________________________________________________________________
+stage3_block2_b2_c1_conv (Conv2D (None, 8, 8, 96)      497664      concatenate_29[0][0]             
+____________________________________________________________________________________________________
+stage3_block2_b2_c1_bn (BatchNor (None, 8, 8, 96)      384         stage3_block2_b2_c1_conv[0][0]   
+____________________________________________________________________________________________________
+stage3_block2_b2_c1_act (ELU)    (None, 8, 8, 96)      0           stage3_block2_b2_c1_bn[0][0]     
+____________________________________________________________________________________________________
+stage3_block2_b2_drop (Dropout)  (None, 8, 8, 96)      0           stage3_block2_b2_c1_act[0][0]    
+____________________________________________________________________________________________________
+stage3_block2_b2_c2_conv (Conv2D (None, 8, 8, 96)      82944       stage3_block2_b2_drop[0][0]      
+____________________________________________________________________________________________________
+stage3_block2_b2_c2_bn (BatchNor (None, 8, 8, 96)      384         stage3_block2_b2_c2_conv[0][0]   
+____________________________________________________________________________________________________
+stage3_block2_b2_c2_act (ELU)    (None, 8, 8, 96)      0           stage3_block2_b2_c2_bn[0][0]     
+____________________________________________________________________________________________________
+concatenate_30 (Concatenate)     (None, 8, 8, 672)     0           concatenate_29[0][0]             
+                                                                   stage3_block2_b2_c2_act[0][0]    
+____________________________________________________________________________________________________
+stage3_block2_b3_c1_conv (Conv2D (None, 8, 8, 96)      580608      concatenate_30[0][0]             
+____________________________________________________________________________________________________
+stage3_block2_b3_c1_bn (BatchNor (None, 8, 8, 96)      384         stage3_block2_b3_c1_conv[0][0]   
+____________________________________________________________________________________________________
+stage3_block2_b3_c1_act (ELU)    (None, 8, 8, 96)      0           stage3_block2_b3_c1_bn[0][0]     
+____________________________________________________________________________________________________
+stage3_block2_b3_drop (Dropout)  (None, 8, 8, 96)      0           stage3_block2_b3_c1_act[0][0]    
+____________________________________________________________________________________________________
+stage3_block2_b3_c2_conv (Conv2D (None, 8, 8, 96)      82944       stage3_block2_b3_drop[0][0]      
+____________________________________________________________________________________________________
+stage3_block2_b3_c2_bn (BatchNor (None, 8, 8, 96)      384         stage3_block2_b3_c2_conv[0][0]   
+____________________________________________________________________________________________________
+stage3_block2_b3_c2_act (ELU)    (None, 8, 8, 96)      0           stage3_block2_b3_c2_bn[0][0]     
+____________________________________________________________________________________________________
+concatenate_31 (Concatenate)     (None, 8, 8, 768)     0           concatenate_30[0][0]             
+                                                                   stage3_block2_b3_c2_act[0][0]    
+____________________________________________________________________________________________________
+concatenate_32 (Concatenate)     (None, 8, 8, 1370)    0           stage3_block1_cm_compress_act[0][
+                                                                   concatenate_31[0][0]             
+____________________________________________________________________________________________________
+stage3_block2_cm_compress_conv ( (None, 8, 8, 685)     938450      concatenate_32[0][0]             
+____________________________________________________________________________________________________
+stage3_block2_cm_compress_bn (Ba (None, 8, 8, 685)     2740        stage3_block2_cm_compress_conv[0]
+____________________________________________________________________________________________________
+stage3_block2_cm_compress_act (E (None, 8, 8, 685)     0           stage3_block2_cm_compress_bn[0][0
+____________________________________________________________________________________________________
+global_average_pooling2d_1 (Glob (None, 685)           0           stage3_block2_cm_compress_act[0][
+____________________________________________________________________________________________________
+dense_1 (Dense)                  (None, 100)           68600       global_average_pooling2d_1[0][0] 
 ====================================================================================================
-Total params: 3,279,844
-Trainable params: 3,268,132
-Non-trainable params: 11,712
+Total params: 11,256,888
+Trainable params: 11,239,422
+Non-trainable params: 17,466
 ____________________________________________________________________________________________________
-Test loss:     1.0181709235906602
-Test accuracy: 0.7720999747514725
-Test error:    0.22790002524852748
-Elapsed time = 31018 [s]
+layer depth: 73
+Test loss:     1.0131316643953323
+Test accuracy: 0.7813999736309052
+Test error:    0.2186000263690948
+Elapsed time = 51198 [s]

@@ -21,17 +21,24 @@ def _create_model(nb_classes: int, input_shape: tuple):
         return x
 
     def _branch(x, filters, name):
-        x = _conv(x, filters * 4, (1, 1), padding='same', name=name + '_sq')
+        x = _conv(x, filters, (3, 3), padding='same', name=name + '_c1')
         x = keras.layers.Dropout(0.25, name=name + '_drop')(x)
-        x = _conv(x, filters, (3, 3), padding='same', name=name + '_ex')
+        x = _conv(x, filters, (3, 3), padding='same', name=name + '_c2')
+        return x
+
+    def _compress(x, name):
+        filters = K.int_shape(x)[-1]
+        x = _conv(x, filters // 2, (1, 1), name=name)
         return x
 
     def _block(x, inc_filters, name):
-        for i in range(6):
-            b = _branch(x, inc_filters, name=name + '_b' + str(i))
+        shortcut = x
+        x = _conv(x, inc_filters, (1, 1), padding='same', name=name + '_sq')
+        for i in range(4):
+            b = _branch(x, inc_filters // 4, name=name + '_b' + str(i))
             x = keras.layers.Concatenate()([x, b])
-        compressed_filters = K.int_shape(x)[-1] // 2
-        x = _conv(x, compressed_filters, (1, 1), name=name + '_sq')
+        x = keras.layers.Concatenate()([shortcut, x])
+        x = _compress(x, name=name + '_cm')
         return x
 
     def _ds(x, name):
@@ -54,11 +61,14 @@ def _create_model(nb_classes: int, input_shape: tuple):
 
     x = inp = keras.layers.Input(input_shape)
     x = _conv(x, 64, (3, 3), padding='same', name='start')
-    x = _block(x, 32, name='stage1_block')
+    x = _block(x, 128, name='stage1_block1')
+    x = _block(x, 128, name='stage1_block2')
     x = _ds(x, name='stage1_ds')
-    x = _block(x, 48, name='stage2_block')
+    x = _block(x, 256, name='stage2_block1')
+    x = _block(x, 256, name='stage2_block2')
     x = _ds(x, name='stage2_ds')
-    x = _block(x, 64, name='stage3_block')
+    x = _block(x, 384, name='stage3_block1')
+    x = _block(x, 384, name='stage3_block2')
     x = keras.layers.GlobalAveragePooling2D()(x)
     x = keras.layers.Dense(nb_classes, activation='softmax', kernel_regularizer='l2')(x)
 
@@ -80,6 +90,7 @@ def run(logger, result_dir: pathlib.Path):
 
     model = _create_model(nb_classes, input_shape)
     model.summary(print_fn=logger.debug)
+    logger.debug('layer depth: %d', sum(isinstance(l, keras.layers.Conv2D) for l in model.layers))
     keras.utils.plot_model(model, str(result_dir.joinpath('model.png')), show_shapes=True)
     tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))
 
