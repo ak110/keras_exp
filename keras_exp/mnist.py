@@ -70,6 +70,10 @@ def run(logger, result_dir: pathlib.Path):
     gen.add(0.125, tk.image.RandomBlur(partial=True))
     gen.add(0.125, tk.image.RandomUnsharpMask())
     gen.add(0.125, tk.image.RandomUnsharpMask(partial=True))
+    gen.add(0.125, tk.image.Sharp())
+    gen.add(0.125, tk.image.Sharp(partial=True))
+    gen.add(0.125, tk.image.Soft())
+    gen.add(0.125, tk.image.Soft(partial=True))
     gen.add(0.125, tk.image.RandomMedian())
     gen.add(0.125, tk.image.RandomMedian(partial=True))
 
