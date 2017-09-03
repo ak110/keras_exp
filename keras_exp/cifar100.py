@@ -26,49 +26,57 @@ def _create_model(nb_classes: int, input_shape: tuple):
         x = _conv(x, filters, (3, 3), padding='same', name=name + '_c2')
         return x
 
-    def _compress(x, name):
-        filters = K.int_shape(x)[-1]
-        x = _conv(x, filters // 2, (1, 1), name=name)
+    def _compress(x, filters, name):
+        if filters is None:
+            filters = K.int_shape(x)[-1] // 2
+        x = _conv(x, filters, (1, 1), name=name)
         return x
 
     def _block(x, inc_filters, name):
         shortcut = x
+
         x = _conv(x, inc_filters, (1, 1), padding='same', name=name + '_sq')
         for i in range(4):
             b = _branch(x, inc_filters // 4, name=name + '_b' + str(i))
             x = keras.layers.Concatenate()([x, b])
+
         x = keras.layers.Concatenate()([shortcut, x])
-        x = _compress(x, name=name + '_cm')
         return x
 
     def _ds(x, name):
-        filters = K.int_shape(x)[-1]
+        if False:
+            filters = K.int_shape(x)[-1]
 
-        mp = keras.layers.MaxPooling2D()(x)
+            mp = keras.layers.MaxPooling2D()(x)
 
-        avg = _conv(x, filters // 2, (1, 1), name=name + '_avgsq')
-        avg = keras.layers.AveragePooling2D()(avg)
+            avg = _conv(x, filters // 2, (1, 1), name=name + '_avgsq')
+            avg = keras.layers.AveragePooling2D()(avg)
 
-        c1 = _conv(x, filters // 4, (3, 3), strides=(2, 2), padding='same', name=name + '_c1')
+            c1 = _conv(x, filters // 4, (3, 3), strides=(2, 2), padding='same', name=name + '_c1')
 
-        c2 = _conv(x, filters // 4, (1, 1), name=name + '_c2sq')
-        c2 = _conv(c2, filters // 4, (3, 3), padding='same', name=name + '_c2c')
-        c2 = _conv(c2, filters // 4, (3, 3), strides=(2, 2), padding='same', name=name + '_c2ex')
+            c2 = _conv(x, filters // 4, (1, 1), name=name + '_c2sq')
+            c2 = _conv(c2, filters // 4, (3, 3), padding='same', name=name + '_c2c')
+            c2 = _conv(c2, filters // 4, (3, 3), strides=(2, 2), padding='same', name=name + '_c2ex')
 
-        x = keras.layers.Concatenate()([mp, avg, c1, c2])
-        x = _conv(x, filters, (1, 1), name=name + '_sq')
+            x = keras.layers.Concatenate()([mp, avg, c1, c2])
+            x = _conv(x, filters, (1, 1), name=name + '_sq')
+        else:
+            x = keras.layers.AveragePooling2D()(x)
         return x
 
     x = inp = keras.layers.Input(input_shape)
     x = _conv(x, 64, (3, 3), padding='same', name='start')
-    x = _block(x, 128, name='stage1_block1')
-    x = _block(x, 128, name='stage1_block2')
+    x = _block(x, 64, name='stage1_block1')
+    x = _block(x, 64, name='stage1_block2')
+    x = _compress(x, 128, name='stage1_compress')
     x = _ds(x, name='stage1_ds')
-    x = _block(x, 256, name='stage2_block1')
-    x = _block(x, 256, name='stage2_block2')
+    x = _block(x, 512, name='stage2_block1')
+    x = _block(x, 512, name='stage2_block2')
+    x = _compress(x, 512, name='stage2_compress')
     x = _ds(x, name='stage2_ds')
-    x = _block(x, 384, name='stage3_block1')
-    x = _block(x, 384, name='stage3_block2')
+    x = _block(x, 512, name='stage3_block1')
+    x = _block(x, 512, name='stage3_block2')
+    x = _compress(x, 256, name='stage3_compress')
     x = keras.layers.GlobalAveragePooling2D()(x)
     x = keras.layers.Dense(nb_classes, activation='softmax', kernel_regularizer='l2')(x)
 
