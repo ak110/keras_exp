@@ -33,14 +33,15 @@ def _create_model(nb_classes: int, input_shape: tuple):
         return x
 
     def _block(x, inc_filters, name):
-        shortcut = x
+        for loop in range(2):
+            shortcut = x
 
-        x = _conv(x, inc_filters, (1, 1), padding='same', name=name + '_sq')
-        for i in range(4):
-            b = _branch(x, inc_filters // 4, name=name + '_b' + str(i))
-            x = keras.layers.Concatenate()([x, b])
+            x = _conv(x, inc_filters, (1, 1), padding='same', name=name + str(loop) + '_sq')
+            for i in range(4):
+                b = _branch(x, inc_filters // 4, name=name + str(loop) + '_b' + str(i))
+                x = keras.layers.Concatenate()([x, b])
 
-        x = keras.layers.Concatenate()([shortcut, x])
+            x = keras.layers.Concatenate()([shortcut, x])
         return x
 
     def _ds(x, name):
@@ -66,16 +67,13 @@ def _create_model(nb_classes: int, input_shape: tuple):
 
     x = inp = keras.layers.Input(input_shape)
     x = _conv(x, 64, (3, 3), padding='same', name='start')
-    x = _block(x, 64, name='stage1_block1')
-    x = _block(x, 64, name='stage1_block2')
+    x = _block(x, 64, name='stage1_block')
     x = _compress(x, 128, name='stage1_compress')
     x = _ds(x, name='stage1_ds')
-    x = _block(x, 512, name='stage2_block1')
-    x = _block(x, 512, name='stage2_block2')
+    x = _block(x, 512, name='stage2_block')
     x = _compress(x, 512, name='stage2_compress')
     x = _ds(x, name='stage2_ds')
-    x = _block(x, 512, name='stage3_block1')
-    x = _block(x, 512, name='stage3_block2')
+    x = _block(x, 512, name='stage3_block')
     x = _compress(x, 256, name='stage3_compress')
     x = keras.layers.GlobalAveragePooling2D()(x)
     x = keras.layers.Dense(nb_classes, activation='softmax', kernel_regularizer='l2')(x)
