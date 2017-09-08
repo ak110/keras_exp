@@ -65,7 +65,7 @@ def run(logger, result_dir: pathlib.Path):
     # if K.backend() == 'tensorflow':
     #     callbacks.append(keras.callbacks.TensorBoard())
 
-    gen = tk.image.ImageDataGenerator((28, 28), grayscale=True)
+    gen = tk.image.ImageDataGenerator(input_shape[:2], grayscale=True)
     gen.add(0.125, tk.image.RandomBlur())
     gen.add(0.125, tk.image.RandomBlur(partial=True))
     gen.add(0.125, tk.image.RandomUnsharpMask())

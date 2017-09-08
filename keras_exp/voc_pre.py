@@ -1,4 +1,4 @@
-"""CIFAR100."""
+"""Object Detectionのためのベースネットワークの事前学習。"""
 import pathlib
 
 import sklearn.metrics
@@ -26,55 +26,54 @@ def _create_model(nb_classes: int, input_shape: tuple):
         x = _conv(x, filters, (3, 3), padding='same', name=name + '_c2')
         return x
 
-    def _compress(x, filters, name):
+    def _1x1conv(x, filters, name):
         if filters is None:
             filters = K.int_shape(x)[-1] // 2
         x = _conv(x, filters, (1, 1), name=name)
         return x
 
-    def _block(x, inc_filters, name):
-        for loop in range(2):
-            shortcut = x
+    def _block(x, name):
+        filters = K.int_shape(x)[-1]
 
-            x = _conv(x, inc_filters, (1, 1), padding='same', name=name + str(loop) + '_sq')
-            for i in range(4):
-                b = _branch(x, inc_filters // 4, name=name + str(loop) + '_b' + str(i))
-                x = keras.layers.Concatenate()([x, b])
+        for i in range(4):
+            b = _branch(x, filters // 4, name=name + '_b' + str(i))
+            x = keras.layers.Concatenate()([x, b])
 
-            x = keras.layers.Concatenate()([shortcut, x])
+        x = _1x1conv(x, filters * 2, name=name + '_sq')
         return x
 
-    def _ds(x, name):
-        if False:
-            filters = K.int_shape(x)[-1]
+    def _small_block(x, filters, name):
+        if K.int_shape(x)[-1] != filters:
+            x = _conv(x, filters, (1, 1), padding='same', name=name + '_pre')
+        sc = x
+        x = keras.layers.Conv2D(filters // 4, (1, 1), padding='same', use_bias=False, name=name + '_b1')(x)
+        x = keras.layers.BatchNormalization(name=name + '_b1bn')(x)
+        x = keras.layers.Dropout(0.25)(x)
+        x = keras.layers.Conv2D(filters // 4, (3, 3), padding='same', use_bias=False, name=name + '_b2')(x)
+        x = keras.layers.BatchNormalization(name=name + '_b2bn')(x)
+        x = keras.layers.ELU(name=name + '_b2act')(x)
+        x = keras.layers.Conv2D(filters, (1, 1), padding='same', use_bias=False, name=name + '_b3')(x)
+        x = keras.layers.Add()([sc, x])
+        return x
 
-            mp = keras.layers.MaxPooling2D()(x)
-
-            avg = _conv(x, filters // 2, (1, 1), name=name + '_avgsq')
-            avg = keras.layers.AveragePooling2D()(avg)
-
-            c1 = _conv(x, filters // 4, (3, 3), strides=(2, 2), padding='same', name=name + '_c1')
-
-            c2 = _conv(x, filters // 4, (1, 1), name=name + '_c2sq')
-            c2 = _conv(c2, filters // 4, (3, 3), padding='same', name=name + '_c2c')
-            c2 = _conv(c2, filters // 4, (3, 3), strides=(2, 2), padding='same', name=name + '_c2ex')
-
-            x = keras.layers.Concatenate()([mp, avg, c1, c2])
-            x = _conv(x, filters, (1, 1), name=name + '_sq')
-        else:
-            x = keras.layers.AveragePooling2D()(x)
+    def _ds(x, kernel_size, strides, name):
+        x = keras.layers.AveragePooling2D(kernel_size, strides=strides, name=name + '_pool')(x)
         return x
 
     x = inp = keras.layers.Input(input_shape)
-    x = _conv(x, 64, (3, 3), padding='same', name='start')
-    x = _block(x, 64, name='stage1_block')
-    x = _compress(x, 128, name='stage1_compress')
-    x = _ds(x, name='stage1_ds')
-    x = _block(x, 512, name='stage2_block')
-    x = _compress(x, 512, name='stage2_compress')
-    x = _ds(x, name='stage2_ds')
-    x = _block(x, 512, name='stage3_block')
-    x = _compress(x, 256, name='stage3_compress')
+    x = _conv(x, 32, (3, 3), padding='same', name='start_cifar100')
+
+    x = _block(x, 'stage1_block')  # ch=64
+    x = _ds(x, (2, 2), (2, 2), 'stage1_ds')  # 96
+    x = _block(x, 'stage2_block')  # ch=128
+    x = _ds(x, (2, 2), (2, 2), 'stage2_ds')
+    x = _block(x, 'stage3_block')  # ch=256
+    x = _ds(x, (2, 2), (2, 2), 'stage3_ds')
+
+    x = _block(x, 'stage4_block')  # ch=512
+    x = _ds(x, (2, 2), (2, 2), 'stage4_ds')
+
+    x = _1x1conv(x, 256, name='last_cifar100')
     x = keras.layers.GlobalAveragePooling2D()(x)
     x = keras.layers.Dense(nb_classes, activation='softmax', kernel_regularizer='l2')(x)
 
@@ -88,7 +87,7 @@ def run(logger, result_dir: pathlib.Path):
     import keras
     import keras.preprocessing.image
 
-    input_shape = (32, 32, 3)
+    input_shape = (64, 64, 3)
     nb_classes = 100
     (X_train, y_train), (X_test, y_test) = keras.datasets.cifar100.load_data()
     y_train = keras.utils.to_categorical(y_train, nb_classes)
@@ -101,7 +100,7 @@ def run(logger, result_dir: pathlib.Path):
     tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))
 
     callbacks = []
-    callbacks.append(tk.dl.my_callback_factory()(result_dir, base_lr=1e-3))
+    callbacks.append(tk.dl.my_callback_factory()(result_dir, base_lr=1e-3, max_reduces=0))
     callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'loss'))
     callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'acc'))
     # if K.backend() == 'tensorflow':

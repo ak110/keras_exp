@@ -183,11 +183,11 @@ class PriorBoxes(object):
         # クラス分類のloss
         pred_confs = K.clip(pred_confs, K.epsilon(), 1 - K.epsilon())
         if _LOSS_FUNC == 'ce':
-            # Cross Entropy
+            # cross entropy
             loss_conf = -K.sum(gt_confs * K.log(pred_confs), axis=-1)
             loss_conf = K.mean(loss_conf)
         elif _LOSS_FUNC == 'bce':
-            # Balanced Cross Entropy
+            # balanced cross entropy (極端なので上手く動かなそう)
             loss_conf = -K.sum(gt_confs * K.log(pred_confs), axis=-1)
             loss_conf_obj = K.sum(loss_conf * obj_mask)
             loss_conf_bg = K.sum(loss_conf * bg_mask)
@@ -276,26 +276,22 @@ class PriorBoxes(object):
             in zip(confs_list, locs_list)])
         return np.array(classes), np.array(confs), np.array(locs)
 
-    def _decode_prediction(self, pred_confs, pred_locs, confidence_threshold):
+    def _decode_prediction(self, pred_confs, pred_locs, top_k=16):
         """予測結果のデコード。(1枚分)"""
         assert len(pred_confs) == len(pred_locs)
         assert pred_confs.shape == (len(self.pb_locs), self.nb_classes)
         assert pred_locs.shape == (len(self.pb_locs), 4)
         max_nonbg_confs = pred_confs[:, 1:].max(axis=-1)  # prior box数分の、背景以外のconfidenceの最大値
-        pb_mask = max_nonbg_confs >= confidence_threshold
-        if not pb_mask.any():
-            # thresholdを超えたのが1つも無ければとりあえず1個だけ最大のを取り出す。
-            pb_mask[max_nonbg_confs.argmax()] = True
-        # 条件に該当するものを取得
-        confs = max_nonbg_confs[pb_mask]
-        classes = pred_confs[pb_mask, :].argmax(axis=-1)
-        locs = (self.pb_locs[pb_mask, :] + pred_locs[pb_mask, :]) * np.expand_dims(self.pb_sizes[pb_mask], axis=-1)
+
+        # confidenceの上位top_k個のindexを降順に取得
+        pb_ix = np.argpartition(max_nonbg_confs, -top_k)[-top_k:][::-1]
+
+        # 該当するものを取得
+        confs = max_nonbg_confs[pb_ix]
+        classes = pred_confs[pb_ix, :].argmax(axis=-1)
+        locs = (self.pb_locs[pb_ix, :] + pred_locs[pb_ix, :]) * np.expand_dims(self.pb_sizes[pb_ix], axis=-1)
         locs = np.clip(locs, 0, 1)  # はみ出ている分はクリッピング
-        # confの降順にソート
-        order = confs.argsort()[::-1]
-        confs = confs[order]
-        classes = classes[order]
-        locs = locs[order, :]
+
         return classes, confs, locs
 
 
@@ -350,13 +346,6 @@ def _create_model(input_shape: tuple, pbox: PriorBoxes):
         x = keras.layers.AveragePooling2D(kernel_size, strides=strides, name=name + '_pool')(x)
         return x
 
-    def _us(x, filters, kernel_size, *args, name=None, **kargs):
-        x = _conv(x, filters, (1, 1), padding='same', name=name + '_sq')
-        x = keras.layers.Conv2DTranspose(filters, kernel_size, *args, use_bias=False, name=name, **kargs)(x)
-        x = keras.layers.BatchNormalization(name=name + 'bn')(x)
-        x = keras.layers.ELU(name=name + 'act')(x)
-        return x
-
     net = {}
     x = inputs = keras.layers.Input(input_shape)
     x = _conv(x, 32, (7, 7), strides=(2, 2), padding='valid', name='start_conv')  # 384
@@ -367,52 +356,52 @@ def _create_model(input_shape: tuple, pbox: PriorBoxes):
     x = _ds(x, (2, 2), (2, 2), 'stage1_ds')  # 96
     assert K.int_shape(x)[1] == 96
     x = _block(x, 'stage2_block')  # ch=128
-    x = _ds(x, (2, 2), (2, 2), 'stage2_ds')  # 48
+    x = _ds(x, (2, 2), (2, 2), 'stage2_ds')
     assert K.int_shape(x)[1] == 48
     net['out48'] = x
 
     x = _block(x, 'stage3_block')  # ch=256
-    x = _ds(x, (2, 2), (2, 2), 'stage3_ds')  # 24
+    x = _ds(x, (2, 2), (2, 2), 'stage3_ds')
     assert K.int_shape(x)[1] == 24
     net['out24'] = x
 
     x = _block(x, 'stage4_block')  # ch=512
-    x = _ds(x, (2, 2), (2, 2), 'stage4_ds')  # 12
+    x = _ds(x, (2, 2), (2, 2), 'stage4_ds')
     assert K.int_shape(x)[1] == 12
     net['out12'] = x
 
     x = _small_block(x, 512, 'stage5_conv')
-    x = _ds(x, (2, 2), (2, 2), 'stage5_ds')  # 6
+    x = _ds(x, (2, 2), (2, 2), 'stage5_ds')
     assert K.int_shape(x)[1] == 6
     net['out6'] = x
 
     x = _small_block(x, 512, 'stage6_conv')
-    x = _ds(x, (2, 2), (2, 2), 'stage6_ds')  # 3
+    x = _ds(x, (2, 2), (2, 2), 'stage6_ds')
     assert K.int_shape(x)[1] == 3
     net['out3'] = x
 
-    x = keras.layers.AveragePooling2D((3, 3), name='avg_pool')(x)
+    x = _conv(x, 128, (3, 3), padding='valid', name='center_conv1')  # 1
     x = keras.layers.UpSampling2D((3, 3))(x)
     x = keras.layers.Concatenate()([x, net['out3']])
     x = _small_block(x, 512, 'stage6u_conv')
     net['out3'] = x
 
-    x = keras.layers.UpSampling2D()(x)  # 6
+    x = keras.layers.UpSampling2D()(x)
     x = keras.layers.Concatenate()([x, net['out6']])
     x = _small_block(x, 512, 'stage5u_conv')
     net['out6'] = x
 
-    x = keras.layers.UpSampling2D()(x)  # 12
+    x = keras.layers.UpSampling2D()(x)
     x = keras.layers.Concatenate()([x, net['out12']])
     x = _small_block(x, 512, 'stage4u_conv')
     net['out12'] = x
 
-    x = keras.layers.UpSampling2D()(x)  # 24
+    x = keras.layers.UpSampling2D()(x)
     x = keras.layers.Concatenate()([x, net['out24']])
     x = _small_block(x, 512, 'stage3u_conv')
     net['out24'] = x
 
-    x = keras.layers.UpSampling2D()(x)  # 48
+    x = keras.layers.UpSampling2D()(x)
     x = keras.layers.Concatenate()([x, net['out48']])
     x = _small_block(x, 512, 'stage2u_conv')
     net['out48'] = x
@@ -561,6 +550,9 @@ def run(logger, result_dir: pathlib.Path, data_dir: pathlib.Path):
     model.summary(print_fn=logger.debug)
     keras.utils.plot_model(model, str(result_dir.joinpath('model.png')), show_shapes=True)
     tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))
+
+    # 事前学習の読み込み
+    model.load_weights(str(result_dir.parent.joinpath('model.h5')), by_Name=True)
 
     gen = Generator(image_size=input_shape[:2], pbox=pbox)
     gen.add(0.5, tk.image.FlipLR())

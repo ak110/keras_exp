@@ -12,6 +12,7 @@ import keras_exp.cifar10
 import keras_exp.cifar100
 import keras_exp.mnist
 import keras_exp.voc
+import keras_exp.voc_pre
 import pytoolkit as tk
 
 
@@ -25,7 +26,7 @@ def _main():
     parser.add_argument('mode', help='動作モード',
                         nargs='?',
                         default='cifar100',
-                        choices=['mnist', 'cifar10', 'cifar100', 'voc'])
+                        choices=['mnist', 'cifar10', 'cifar100', 'voc_pre', 'voc'])
     args = parser.parse_args()
 
     base_dir = pathlib.Path(os.path.realpath(__file__)).parent
@@ -47,6 +48,8 @@ def _main():
             keras_exp.cifar10.run(logger, result_dir)
         elif args.mode == 'cifar100':
             keras_exp.cifar100.run(logger, result_dir)
+        elif args.mode == 'voc_pre':
+            keras_exp.voc_pre.run(logger, result_dir)
         elif args.mode == 'voc':
             keras_exp.voc.run(logger, result_dir, base_dir.joinpath('data'))
         else:

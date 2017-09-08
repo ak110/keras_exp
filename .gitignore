@@ -11,3 +11,6 @@ model.h5
 model.png
 model.params.png
 batchlog.tsv
+
+# これだけ面倒なので保存しちゃう
+!results/voc_pre/model.h5
