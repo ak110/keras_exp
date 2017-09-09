@@ -380,7 +380,7 @@ def _create_model(input_shape: tuple, pbox: PriorBoxes):
     assert K.int_shape(x)[1] == 3
     net['out3'] = x
 
-    x = _conv(x, 128, (3, 3), padding='valid', name='center_conv1')  # 1
+    x = keras.layers.MaxPooling2D((3, 3))(x)
     x = keras.layers.UpSampling2D((3, 3))(x)
     x = keras.layers.Concatenate()([x, net['out3']])
     x = _small_block(x, 512, 'stage6u_conv')
@@ -552,7 +552,7 @@ def run(logger, result_dir: pathlib.Path, data_dir: pathlib.Path):
     tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))
 
     # 事前学習の読み込み
-    model.load_weights(str(result_dir.parent.joinpath('model.h5')), by_Name=True)
+    model.load_weights(str(result_dir.parent.joinpath('voc_pre', 'model.h5')), by_name=True)
 
     gen = Generator(image_size=input_shape[:2], pbox=pbox)
     gen.add(0.5, tk.image.FlipLR())
