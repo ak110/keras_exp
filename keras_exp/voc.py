@@ -610,6 +610,14 @@ def plot_result(pbox, model, gen, X_test, save_dir):
 
 def run(logger, result_dir: pathlib.Path, data_dir: pathlib.Path):
     """実行。"""
+    import keras.backend as K
+    K.set_image_dim_ordering('tf')
+    with tk.dl.session():
+        _run(logger, result_dir, data_dir)
+
+
+def _run(logger, result_dir: pathlib.Path, data_dir: pathlib.Path):
+    """実行。"""
     # データの読み込み
     nb_classes = len(_CLASS_NAMES)
     X_train = np.array(

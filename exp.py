@@ -37,24 +37,20 @@ def _main():
     result_dir.mkdir(parents=True, exist_ok=True)
     logger = tk.create_tee_logger(result_dir.joinpath('output.log'))
 
-    import keras.backend as K
-    K.set_image_dim_ordering('tf')
-
-    with tk.dl.session():
-        start_time = time.time()
-        if args.mode == 'mnist':
-            keras_exp.mnist.run(logger, result_dir)
-        elif args.mode == 'cifar10':
-            keras_exp.cifar10.run(logger, result_dir)
-        elif args.mode == 'cifar100':
-            keras_exp.cifar100.run(logger, result_dir)
-        elif args.mode == 'voc_pre':
-            keras_exp.voc_pre.run(logger, result_dir)
-        elif args.mode == 'voc':
-            keras_exp.voc.run(logger, result_dir, base_dir.joinpath('data'))
-        else:
-            assert False
-        elapsed_time = time.time() - start_time
+    start_time = time.time()
+    if args.mode == 'mnist':
+        keras_exp.mnist.run(logger, result_dir)
+    elif args.mode == 'cifar10':
+        keras_exp.cifar10.run(logger, result_dir)
+    elif args.mode == 'cifar100':
+        keras_exp.cifar100.run(logger, result_dir)
+    elif args.mode == 'voc_pre':
+        keras_exp.voc_pre.run(logger, result_dir)
+    elif args.mode == 'voc':
+        keras_exp.voc.run(logger, result_dir, base_dir.joinpath('data'))
+    else:
+        assert False
+    elapsed_time = time.time() - start_time
 
     logger.info('Elapsed time = %d [s]', int(np.ceil(elapsed_time)))
 

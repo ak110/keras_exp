@@ -65,6 +65,13 @@ def _create_model(nb_classes: int, input_shape: tuple):
 
 def run(logger, result_dir: pathlib.Path):
     """実行。"""
+    import keras.backend as K
+    K.set_image_dim_ordering('tf')
+    with tk.dl.session():
+        _run(logger, result_dir)
+
+
+def _run(logger, result_dir: pathlib.Path):
     import keras
     import keras.preprocessing.image
 
