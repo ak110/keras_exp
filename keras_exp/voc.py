@@ -17,14 +17,15 @@ _USE_BN = True  # not _DEBUG
 _USE_DO = True  # not _DEBUG
 
 _BATCH_SIZE = 16
-_MAX_EPOCH = 300
+_MAX_EPOCH = 18 if _DEBUG else 300
+_BASE_LR = 1e-1  # 1e-3
 _LARGE_IMAGE_SIZE = False
 _TRAIN_DIFFICULT = True
 _ASPECT_RATIO_PATTERNS = 5
 _PB_SIZE_PATTERNS = 3
 
 _CHECK_PRIOR_BOX = False  # 重いので必要なときだけ
-_PRINT_MAP = False  # 重いので必要なときだけ
+_EVALUATE = True  # 重いので必要なときだけ
 
 _CLASS_NAMES = ['bg'] + tk.ml.VOC_CLASS_NAMES
 _CLASS_NAME_TO_ID = {n: i for i, n in enumerate(_CLASS_NAMES)}
@@ -38,13 +39,13 @@ class PriorBoxes(object):
 
     def __init__(self, nb_classes, mean_objets, pb_size_ratios=(1.5, 2.0, 2.5), aspect_ratios=(1, 2, 1 / 2, 3, 1 / 3)):
         self.nb_classes = nb_classes
-        self.input_size = (773, 773) if _LARGE_IMAGE_SIZE else (390, 390)
+        self.input_size = (773, 773) if _LARGE_IMAGE_SIZE else (384, 384)
         # 1枚の画像あたりの平均オブジェクト数
         self.mean_objets = mean_objets
         # 1 / fm_countに対する、prior boxの基準サイズの割合。3なら3倍の大きさのものを用意。
-        self.pb_size_ratios = pb_size_ratios
+        self.pb_size_ratios = np.array(pb_size_ratios)
         # アスペクト比のリスト
-        self.aspect_ratios = aspect_ratios
+        self.aspect_ratios = np.array(aspect_ratios)
 
         # shape=(box数, 4)で座標
         self.pb_locs = None
@@ -74,37 +75,40 @@ class PriorBoxes(object):
         self.pb_sizes = []
         self.config = []
         for fm_count in PriorBoxes.FM_COUNTS:
-            for pb_size_ratio in self.pb_size_ratios:
-                # 敷き詰める間隔
-                tile_size = 1.0 / fm_count
-                # 敷き詰めたときの中央の位置のリスト
-                lin = np.linspace(0.5 * tile_size, 1 - 0.5 * tile_size, fm_count, dtype=np.float32)
-                # 縦横に敷き詰め
-                centers_x, centers_y = np.meshgrid(lin, lin)
-                centers_x = centers_x.reshape(-1, 1)
-                centers_y = centers_y.reshape(-1, 1)
-                prior_boxes = np.concatenate((centers_x, centers_y), axis=1)
-                # x, y → x1, y1, x2, y2
-                prior_boxes = np.tile(prior_boxes, (len(self.aspect_ratios), 1, 2))
+            # 敷き詰める間隔
+            tile_size = 1.0 / fm_count
+            # 敷き詰めたときの中央の位置のリスト
+            lin = np.linspace(0.5 * tile_size, 1 - 0.5 * tile_size, fm_count, dtype=np.float32)
+            # 縦横に敷き詰め
+            centers_x, centers_y = np.meshgrid(lin, lin)
+            centers_x = centers_x.reshape(-1, 1)
+            centers_y = centers_y.reshape(-1, 1)
+            prior_boxes = np.concatenate((centers_x, centers_y), axis=1)
+            # (x, y) → サイズ比アスペクト比×タイル×(x1, y1, x2, y2)
+            prior_boxes = np.tile(prior_boxes, (len(self.pb_size_ratios) * len(self.aspect_ratios), 1, 2))
+            assert prior_boxes.shape == (len(self.pb_size_ratios) * len(self.aspect_ratios), fm_count ** 2, 4)
+            #  → タイル×サイズ比アスペクト比×(x1, y1, x2, y2)
+            prior_boxes = np.swapaxes(prior_boxes, 0, 1)
+            assert prior_boxes.shape == (fm_count ** 2, len(self.pb_size_ratios) * len(self.aspect_ratios), 4)
 
-                # prior boxのサイズ
-                pb_size = tile_size * pb_size_ratio
-                # (x1, y1, x2, y2)の位置を調整。縦横半分ずつ動かす。
-                half_box_widths = np.array([[0.5 * pb_size * np.sqrt(ar)] for ar in self.aspect_ratios])
-                half_box_heights = np.array([[0.5 * pb_size / np.sqrt(ar)] for ar in self.aspect_ratios])
-                prior_boxes[:, :, 0] -= half_box_widths
-                prior_boxes[:, :, 1] -= half_box_heights
-                prior_boxes[:, :, 2] += half_box_widths
-                prior_boxes[:, :, 3] += half_box_heights
-                # はみ出ているのはclipしておく
-                prior_boxes = np.clip(prior_boxes, 0, 1)
+            # prior boxのサイズ
+            # (x1, y1, x2, y2)の位置を調整。縦横半分ずつ動かす。
+            half_box_widths = np.reshape([[0.5 * tile_size * psr * np.sqrt(self.aspect_ratios)] for psr in self.pb_size_ratios], (1, -1))
+            half_box_heights = np.reshape([[0.5 * tile_size * psr / np.sqrt(self.aspect_ratios)] for psr in self.pb_size_ratios], (1, -1))
+            prior_boxes[:, :, 0] -= half_box_widths
+            prior_boxes[:, :, 1] -= half_box_heights
+            prior_boxes[:, :, 2] += half_box_widths
+            prior_boxes[:, :, 3] += half_box_heights
+            # はみ出ているのはclipしておく
+            prior_boxes = np.clip(prior_boxes, 0, 1)
 
-                # (アスペクト比, タイル, 4) → (アスペクト比×タイル, 4)
-                prior_boxes = prior_boxes.reshape(-1, 4)
+            # (タイル, サイズ比アスペクト比, 4) → (タイルサイズ比アスペクト比, 4)
+            prior_boxes = prior_boxes.reshape(-1, 4)
 
-                self.pb_locs.extend(prior_boxes)
-                self.pb_indices.extend([len(self.config)] * len(prior_boxes))
-                self.pb_scales.extend(np.tile(prior_boxes[:, 2:] - prior_boxes[:, :2], 2))
+            self.pb_locs.extend(prior_boxes)
+            self.pb_indices.extend([len(self.config)] * len(prior_boxes))
+            self.pb_scales.extend(np.tile(prior_boxes[:, 2:] - prior_boxes[:, :2], 2))
+            for pb_size in tile_size * self.pb_size_ratios:
                 self.pb_sizes.append(pb_size)
                 self.config.append({'fm_count': fm_count, 'pb_size': pb_size, 'box_count': len(prior_boxes)})
 
@@ -177,8 +181,7 @@ class PriorBoxes(object):
         gt_confs, gt_locs = y_true[:, :, :-4], y_true[:, :, -4:]
         pred_confs, pred_locs = y_pred[:, :, :-4], y_pred[:, :, -4:]
 
-        obj_mask = K.less(gt_confs[:, :, 0], 0.5)  # 背景以外
-        obj_mask = K.cast(obj_mask, K.floatx())
+        obj_mask = K.cast(K.less(gt_confs[:, :, 0], 0.5), K.floatx())   # 背景以外
         obj_count = K.sum(obj_mask, axis=-1)  # 各batch毎のobj数。
         obj_div = K.maximum(obj_count, K.ones_like(obj_count))
 
@@ -186,20 +189,21 @@ class PriorBoxes(object):
         loss_loc = self._loss_loc(gt_locs, pred_locs, obj_mask, obj_div)
         return loss_conf + loss_loc
 
-    def _loss_conf(self, gt_confs, pred_confs, obj_div):
+    @staticmethod
+    def _loss_conf(gt_confs, pred_confs, obj_div):
         """分類のloss。"""
         import keras.backend as K
-        loss_conf = tk.dl.categorical_focal_loss(gt_confs, pred_confs, self.nb_classes)
-        loss_conf = K.sum(loss_conf, axis=-1) / obj_div  # normalized by the number of anchors assigned to a ground-truth box
-        return loss_conf
+        loss = tk.dl.categorical_focal_loss(gt_confs, pred_confs, alpha=0.99)
+        loss = K.sum(loss, axis=-1) / obj_div  # normalized by the number of anchors assigned to a ground-truth box
+        return loss
 
     @staticmethod
     def _loss_loc(gt_locs, pred_locs, obj_mask, obj_div):
         """位置のloss。"""
         import keras.backend as K
-        loss_loc = tk.dl.l1_smooth_loss(gt_locs, pred_locs)
-        loss_loc = K.sum(loss_loc * obj_mask, axis=-1) / obj_div  # mean
-        return loss_loc
+        loss = tk.dl.l1_smooth_loss(gt_locs, pred_locs)
+        loss = K.sum(loss * obj_mask, axis=-1) / obj_div  # mean
+        return loss
 
     @staticmethod
     def acc_bg(y_true, y_pred):
@@ -243,23 +247,6 @@ class PriorBoxes(object):
 
         return PriorBoxes._loss_loc(gt_locs, pred_locs, obj_mask, obj_div)
 
-    @staticmethod
-    def mae_loc(y_true, y_pred):
-        """位置のずれの絶対値の平均。"""
-        import keras.backend as K
-        gt_confs, gt_locs = y_true[:, :, :-4], y_true[:, :, -4:]
-        pred_locs = y_pred[:, :, -4:]
-
-        obj_mask = gt_confs[:, :, 0] < 0.5  # 背景以外
-        obj_mask = K.cast(obj_mask, K.floatx())
-        obj_count = K.sum(obj_mask, axis=-1)
-        obj_div = K.maximum(obj_count, K.ones_like(obj_count))
-
-        mae = K.mean(K.abs(gt_locs - pred_locs), axis=-1)
-        mae *= obj_mask
-        mae = K.sum(mae, axis=-1) / obj_div
-        return mae
-
     def encode_truth(self, y_gt):
         """学習用の`y_true`の作成。
 
@@ -271,7 +258,6 @@ class PriorBoxes(object):
         locs = np.zeros((len(y_gt), len(self.pb_locs), 4), dtype=np.float32)
         # 画像ごとのループ
         for i, y in enumerate(y_gt):
-            y = tk.ml.ObjectsAnnotation(*y)
             # prior_boxesとbboxesで重なっているものを探す
             iou = tk.ml.compute_iou(self.pb_locs, y.bboxes)
 
@@ -316,7 +302,7 @@ class PriorBoxes(object):
         # いったんくっつける (損失関数の中で分割して使う)
         return np.concatenate([confs, locs], axis=-1)
 
-    def decode_predictions(self, predictions, top_k=16, detect_least_conf=0.9, detect_min_conf=0.6, collision_iou=0.5):
+    def decode_predictions(self, predictions, top_k=16, detect_least_conf=0.9, detect_min_conf=0.6, collision_iou=0.75):
         """予測結果をデコードする。
 
         出力は以下の3つの値。画像ごとにconfidenceの降順。
@@ -342,6 +328,7 @@ class PriorBoxes(object):
         classes = []
         confs = []
         locs = []
+        detections = 0
         # confidenceの上位を降順にループ
         obj_confs = pred_confs[:, 1:].max(axis=-1)  # prior box数分の、背景以外のconfidenceの最大値
         for pb_ix in np.argsort(obj_confs)[::-1]:
@@ -351,21 +338,27 @@ class PriorBoxes(object):
             # 幅や高さが0以下になってしまっているものはスキップする
             if (loc[2:] <= loc[:2]).any():
                 continue
-            # 既に出現済みのものと大きく重なっているものはスキップする
-            if len(locs) >= 1 and tk.ml.compute_iou(np.array(locs), np.array([loc])).max() >= collision_iou:
-                continue
-
-            conf = obj_confs[pb_ix]
             # 充分高いconfidenceのものがあるなら、ある程度以下のconfidenceのものは無視
-            if len(confs) >= 1 and detect_least_conf <= confs[0] and conf < detect_min_conf:
+            if len(confs) >= 1 and detect_least_conf <= confs[0] and obj_confs[pb_ix] < detect_min_conf:
                 break
 
-            classes.append(pred_confs[pb_ix, 1:].argmax(axis=-1) + 1)
-            confs.append(conf)
-            locs.append(loc)
+            detections += 1
             # 最大top_k個まで検知扱いにする
-            if top_k <= len(locs):
+            if top_k < detections:
                 break
+
+            # 既に出現済みのものと大きく重なっているものはスキップする
+            class_id = pred_confs[pb_ix, 1:].argmax(axis=-1) + 1
+            if len(locs) >= 1:
+                col_iou = tk.ml.compute_iou(np.array(locs), np.array([loc]))
+                assert col_iou.shape == (len(locs), 1)
+                col_mask = col_iou[:, 0] >= collision_iou
+                if any([class_id == classes[col_ix] for col_ix in np.where(col_mask)[0]]):
+                    continue
+
+            classes.append(class_id)
+            confs.append(obj_confs[pb_ix])
+            locs.append(loc)
 
         return np.array(classes), np.array(confs), np.array(locs)
 
@@ -375,50 +368,46 @@ def _create_model(input_shape: tuple, pbox: PriorBoxes):
     import keras.backend as K
     from keras.regularizers import l2
 
-    def _conv(x, filters, kernel_size, use_bias, name, **kargs):
-        x = keras.layers.Conv2D(filters, kernel_size, use_bias=use_bias, name=name, **kargs)(x)
-        return x
-
-    def _conv_bn(x, filters, kernel_size, name, **kargs):
-        x = _conv(x, filters, kernel_size, use_bias=not _USE_BN, name=name, **kargs)
+    def _conv_bn_act(x, filters, kernel_size, name, **kargs):
+        x = keras.layers.Conv2D(filters, kernel_size, use_bias=not _USE_BN, name=name, **kargs)(x)
         if _USE_BN:
             x = keras.layers.BatchNormalization(name=name + '_bn')(x)
+        x = keras.layers.ELU(name=name + '_act')(x)
         return x
 
-    def _conv_bn_act(x, filters, kernel_size, name=None, **kargs):
-        assert name is not None
-        x = _conv_bn(x, filters, kernel_size, name, **kargs)
+    def _sepconv_bn_act(x, filters, kernel_size, name, **kargs):
+        x = keras.layers.SeparableConv2D(filters, kernel_size, use_bias=not _USE_BN, name=name, **kargs)(x)
+        if _USE_BN:
+            x = keras.layers.BatchNormalization(name=name + '_bn')(x)
         x = keras.layers.ELU(name=name + '_act')(x)
         return x
 
     def _branch(x, filters, name):
-        x = _conv_bn_act(x, filters, (3, 3), padding='same', name=name + '_c1')
+        in_filters = K.int_shape(x)[-1]
+        ex_filters = filters * 4 if filters * 4 < in_filters else filters
+        x = _conv_bn_act(x, ex_filters, (1, 1), padding='same', name=name + '_c1')
         if _USE_DO:
             x = keras.layers.Dropout(0.25, name=name + '_drop')(x)
-        x = _conv_bn_act(x, filters, (3, 3), padding='same', name=name + '_c2')
+        x = _conv_bn_act(x, ex_filters, (3, 3), padding='same', name=name + '_c2')
+        x = _conv_bn_act(x, filters, (3, 3), padding='same', name=name + '_c3')
         return x
 
     def _1x1conv(x, filters, name):
-        if filters is None:
-            filters = K.int_shape(x)[-1] // 2
         x = _conv_bn_act(x, filters, (1, 1), name=name)
         return x
 
-    def _block(x, name):
-        filters = K.int_shape(x)[-1]
-
-        for i in range(4):
-            b = _branch(x, filters // 4, name=name + '_b' + str(i))
+    def _block(x, inc_filters, name):
+        assert inc_filters % 32 == 0
+        for i in range(inc_filters // 32):
+            b = _branch(x, 32, name=name + '_b' + str(i))
             x = keras.layers.Concatenate()([x, b])
-
-        x = _1x1conv(x, filters * 2, name=name + '_sq')
         return x
 
     def _small_block(x, filters, name):
-        x = _conv_bn(x, filters // 2, (1, 1), padding='same', name=name + '_b1')
-        if _USE_DO:
-            x = keras.layers.Dropout(0.25)(x)
-        x = _conv_bn_act(x, filters, (3, 3), padding='same', name=name + '_b2')
+        if K.int_shape(x)[-1] > filters:
+            x = _conv_bn_act(x, filters, (1, 1), padding='same', name=name + '_sq')
+        x = _sepconv_bn_act(x, filters, (3, 3), padding='same', name=name + '_conv1')
+        x = _sepconv_bn_act(x, filters, (3, 3), padding='same', name=name + '_conv2')
         return x
 
     def _ds(x, kernel_size, strides, name):
@@ -427,24 +416,28 @@ def _create_model(input_shape: tuple, pbox: PriorBoxes):
 
     net = {}
     x = inputs = keras.layers.Input(input_shape)
-    x = _conv_bn_act(x, 32, (7, 7), strides=(2, 2) if _LARGE_IMAGE_SIZE else (1, 1), padding='valid', name='start_conv')  # 384
+    if _LARGE_IMAGE_SIZE:
+        x = _conv_bn_act(x, 32, (7, 7), strides=(2, 2), padding='valid', name='start_conv')  # 384
+    else:
+        x = _conv_bn_act(x, 32, (3, 3), padding='same', name='start_conv')
     assert K.int_shape(x)[1] == 384
     x = keras.layers.MaxPooling2D(name='start_pool')(x)  # 192
     assert K.int_shape(x)[1] == 192
-    x = _block(x, 'stage1_block')  # ch=64
+    x = _block(x, 32, 'stage1_block')
     x = _ds(x, (2, 2), (2, 2), 'stage1_ds')  # 96
     assert K.int_shape(x)[1] == 96
-    x = _block(x, 'stage2_block')  # ch=128
+
+    x = _block(x, 64, 'stage2_block')
     x = _ds(x, (2, 2), (2, 2), 'stage2_ds')
     assert K.int_shape(x)[1] == 48
     net['out48'] = x
 
-    x = _block(x, 'stage3_block')  # ch=256
+    x = _block(x, 128, 'stage3_block')
     x = _ds(x, (2, 2), (2, 2), 'stage3_ds')
     assert K.int_shape(x)[1] == 24
     net['out24'] = x
 
-    x = _block(x, 'stage4_block')  # ch=512
+    x = _block(x, 256, 'stage4_block')
     x = _ds(x, (2, 2), (2, 2), 'stage4_ds')
     assert K.int_shape(x)[1] == 12
     net['out12'] = x
@@ -457,78 +450,75 @@ def _create_model(input_shape: tuple, pbox: PriorBoxes):
     x = _small_block(x, 512, 'stage6_block')
     x = _ds(x, (2, 2), (2, 2), 'stage6_ds')
     assert K.int_shape(x)[1] == 3
-    net['out3'] = x
+    # net['out3'] = x
 
-    x = keras.layers.MaxPooling2D((3, 3))(x)
-    x = keras.layers.UpSampling2D((3, 3))(x)
-    x = keras.layers.Concatenate()([x, net['out3']])
     x = _small_block(x, 512, 'stage6u_block')
     net['out3'] = x
 
+    x = _1x1conv(x, 256, 'stage5u_sq')
     x = keras.layers.UpSampling2D()(x)
     x = keras.layers.Concatenate()([x, net['out6']])
     x = _small_block(x, 512, 'stage5u_block')
     net['out6'] = x
 
+    x = _1x1conv(x, 256, 'stage4u_sq')
     x = keras.layers.UpSampling2D()(x)
     x = keras.layers.Concatenate()([x, net['out12']])
     x = _small_block(x, 512, 'stage4u_block')
     net['out12'] = x
 
+    x = _1x1conv(x, 256, 'stage3u_sq')
     x = keras.layers.UpSampling2D()(x)
     x = keras.layers.Concatenate()([x, net['out24']])
     x = _small_block(x, 512, 'stage3u_block')
     net['out24'] = x
 
+    x = _1x1conv(x, 256, 'stage2u_sq')
     x = keras.layers.UpSampling2D()(x)
     x = keras.layers.Concatenate()([x, net['out48']])
     x = _small_block(x, 512, 'stage2u_block')
     net['out48'] = x
 
     # prediction moduleの重み共有用レイヤー
-    pm_layers = {}
-    for pb_size_ratio in pbox.pb_size_ratios:
-        for target, filters in (('conf', 256), ('loc', 64)):
-            layers = []
-            for i in range(2):
-                kernel_size = (1, 1)
-                layers.append(keras.layers.Conv2D(
-                    filters, kernel_size, padding='same', use_bias=True,
-                    name='pm-{}-{}-conv{}'.format(pb_size_ratio, target, i)))
-                layers.append(keras.layers.ELU(name='pm-{}-{}-act{}'.format(pb_size_ratio, target, i)))
-            if target == 'conf':
-                layers.append(keras.layers.Conv2D(
-                    len(pbox.aspect_ratios) * pbox.nb_classes, (1, 1), use_bias=True,
-                    kernel_initializer=tk.dl.focal_loss_kernel_initializer(),
-                    bias_initializer=tk.dl.focal_loss_bias_initializer(pbox.nb_classes),
-                    bias_regularizer=l2(1e-4),  # 初期値が±3.8とかなので、徐々に減らしたい
-                    name='pm-{}-conf'.format(pb_size_ratio)))
-            else:
-                layers.append(keras.layers.Conv2D(
-                    len(pbox.aspect_ratios) * 4, (1, 1), use_bias=True,
-                    name='pm-{}-loc'.format(pb_size_ratio)))
-            pm_layers['{}-{}'.format(pb_size_ratio, target)] = layers
+    pm_pre_layers = [
+        #     keras.layers.Conv2D(512, (1, 1), use_bias=not _USE_BN, name='pm-pre'),
+        # ] + ([keras.layers.BatchNormalization(name='pm-pre_bn')] if _USE_BN else []) + [
+        #     keras.layers.ELU(name='pm-pre_act'),
+        #tk.dl.l2normalization_layer()(np.sqrt(512), name='pm-norm'),
+    ]
+    pm_conf_layers = [
+        keras.layers.Conv2D(
+            len(pbox.pb_size_ratios) * len(pbox.aspect_ratios) * pbox.nb_classes, (1, 1), use_bias=True,
+            bias_initializer=tk.dl.od_bias_initializer(pbox.nb_classes),
+            bias_regularizer=l2(1e-4),  # bgの初期値が7.6とかなので、徐々に減らしたい
+            name='pm-conf'),
+        keras.layers.Reshape((-1, pbox.nb_classes), name='pm-conf_reshape'),
+        keras.layers.Activation('softmax', name='pm-conf_softmax'),
+    ]
+    pm_loc_layers = [
+        keras.layers.Conv2D(
+            len(pbox.pb_size_ratios) * len(pbox.aspect_ratios) * 4, (1, 1), use_bias=True, name='pm-loc'),
+        keras.layers.Reshape((-1, 4), name='pm-loc_reshape'),
+    ]
 
     confs, locs = [], []
     for fm_count in PriorBoxes.FM_COUNTS:
-        for pb_size_ratio in pbox.pb_size_ratios:
-            x = net['out{}'.format(fm_count)]
+        x = net['out{}'.format(fm_count)]
 
-            conf = x
-            for layer in pm_layers['{}-{}'.format(pb_size_ratio, 'conf')]:
-                conf = layer(conf)
-            conf = keras.layers.Reshape((-1, pbox.nb_classes))(conf)
-            confs.append(conf)
+        for layer in pm_pre_layers:
+            x = layer(x)
 
-            loc = x
-            for layer in pm_layers['{}-{}'.format(pb_size_ratio, 'loc')]:
-                loc = layer(loc)
-            loc = keras.layers.Reshape((-1, 4))(loc)
-            locs.append(loc)
+        conf = x
+        for layer in pm_conf_layers:
+            conf = layer(conf)
+        confs.append(conf)
+
+        loc = x
+        for layer in pm_loc_layers:
+            loc = layer(loc)
+        locs.append(loc)
 
     confs = keras.layers.Concatenate(axis=-2, name='output_confs')(confs)
-    confs = keras.layers.Activation('softmax')(confs)
-
     locs = keras.layers.Concatenate(axis=-2, name='output_locs')(locs)
 
     # いったんくっつける (損失関数の中で分割して使う)
@@ -536,8 +526,8 @@ def _create_model(input_shape: tuple, pbox: PriorBoxes):
 
     model = keras.models.Model(inputs=inputs, outputs=outputs)
 
-    model.compile('nadam', pbox.loss, [pbox.loss_loc, pbox.acc_bg, pbox.acc_obj, pbox.mae_loc])
-    # model.compile(keras.optimizers.SGD(momentum=0.9, nesterov=True), pbox.loss, [pbox.loss_loc, pbox.acc_bg, pbox.acc_obj, pbox.mae_loc])
+    # model.compile('nadam', pbox.loss, [pbox.loss_loc, pbox.acc_bg, pbox.acc_obj])
+    model.compile(keras.optimizers.SGD(momentum=0.9, nesterov=True), pbox.loss, [pbox.loss_loc, pbox.acc_bg, pbox.acc_obj])
     return model
 
 
@@ -562,52 +552,6 @@ class Generator(tk.image.ImageDataGenerator):
         return rgb
 
 
-def print_map(logger, pbox, model, gen, X_test, y_test, epoch):
-    """`mAP`を算出してprintする。"""
-    if epoch is not None and not (epoch % 16 == 0 or epoch & (epoch - 1) == 0):
-        return  # 重いので16回あたり1回だけ実施
-    if epoch is not None:
-        print('')
-
-    pred = model.predict_generator(
-        gen.flow(X_test, batch_size=_BATCH_SIZE),
-        gen.steps_per_epoch(X_test.shape[0], _BATCH_SIZE),
-        verbose=1)
-
-    gt_classes_list = np.array([y.classes for y in y_test])
-    gt_bboxes_list = np.array([y.bboxes for y in y_test])
-    gt_difficults_list = np.array([y.difficults for y in y_test])
-    pred_classes_list, _, pred_locs_list = pbox.decode_predictions(pred)
-    map1 = tk.ml.compute_map(gt_classes_list, gt_bboxes_list, gt_difficults_list, pred_classes_list, pred_locs_list, use_voc2007_metric=False)
-    map2 = tk.ml.compute_map(gt_classes_list, gt_bboxes_list, gt_difficults_list, pred_classes_list, pred_locs_list, use_voc2007_metric=True)
-
-    logger.debug('mAP={:.4f} mAP(VOC2007)={:.4f}'.format(map1, map2))
-    if epoch is not None:
-        print('')
-
-
-def plot_truth(X_test, y_test, save_dir):
-    """正解データの画像化。"""
-    for X, y in zip(X_test, y_test):
-        tk.ml.plot_objects(
-            X, save_dir.joinpath(pathlib.Path(X).name + '.png'),
-            y.classes, None, y.bboxes, _CLASS_NAMES)
-
-
-def plot_result(pbox, model, gen, X_test, save_dir):
-    """結果の画像化。"""
-    pred = model.predict_generator(
-        gen.flow(X_test, batch_size=_BATCH_SIZE),
-        gen.steps_per_epoch(X_test.shape[0], _BATCH_SIZE),
-        verbose=1)
-    pred_classes_list, pred_confs_list, pred_locs_list = pbox.decode_predictions(pred)
-
-    for X, pred_classes, pred_confs, pred_locs in zip(X_test, pred_classes_list, pred_confs_list, pred_locs_list):
-        tk.ml.plot_objects(
-            X, save_dir.joinpath(pathlib.Path(X).name + '.png'),
-            pred_classes, pred_confs, pred_locs, _CLASS_NAMES)
-
-
 def run(logger, result_dir: pathlib.Path, data_dir: pathlib.Path):
     """実行。"""
     import keras.backend as K
@@ -619,26 +563,7 @@ def run(logger, result_dir: pathlib.Path, data_dir: pathlib.Path):
 def _run(logger, result_dir: pathlib.Path, data_dir: pathlib.Path):
     """実行。"""
     # データの読み込み
-    nb_classes = len(_CLASS_NAMES)
-    X_train = np.array(
-        tk.io.read_all_lines(data_dir.joinpath('VOCdevkit', 'VOC2007', 'ImageSets', 'Main', 'trainval.txt')) +
-        tk.io.read_all_lines(data_dir.joinpath('VOCdevkit', 'VOC2012', 'ImageSets', 'Main', 'trainval.txt'))
-    )
-    X_test = np.array(
-        tk.io.read_all_lines(data_dir.joinpath('VOCdevkit', 'VOC2007', 'ImageSets', 'Main', 'test.txt'))
-    )
-    if _DEBUG:
-        X_test = X_test[:_BATCH_SIZE]  # 先頭バッチサイズ分だけを使用
-        rep = int(np.ceil((len(X_train) / len(X_test)) ** 0.9))  # 個数を減らした分、水増しする。
-        X_train = np.tile(X_test, rep)
-    annotations = load_annotations(data_dir)
-    y_train = [annotations[x] for x in X_train]
-    y_test = [annotations[x] for x in X_test]
-    y_train_arr = np.array(y_train, dtype=object)  # TODO: ここなんとかしたい…
-    y_test_arr = np.array(y_test, dtype=object)  # TODO: ここなんとかしたい…
-    # Xのフルパス化
-    X_train = np.array([data_dir.joinpath('VOCdevkit', y.folder, 'JPEGImages', y.filename) for y in y_train])
-    X_test = np.array([data_dir.joinpath('VOCdevkit', y.folder, 'JPEGImages', y.filename) for y in y_test])
+    (X_train, y_train), (X_test, y_test) = load_data(data_dir)
     logger.debug('train, test = %d, %d', len(X_train), len(X_test))
 
     # 試しに回答を出力してみる。
@@ -649,33 +574,10 @@ def _run(logger, result_dir: pathlib.Path, data_dir: pathlib.Path):
     # 訓練データからパラメータを適当に決める。
     # gridに配置したときのIOUを直接最適化するのは難しそうなので、
     # とりあえず大雑把にKMeansでクラスタ化したりなど。
-    bboxes = np.concatenate([y.bboxes for y in y_train])
-    # 平均オブジェクト数
-    mean_objets = np.mean([len(y.bboxes) for y in y_train])
-    logger.debug('mean objects / image = %f', mean_objets)
-    # サイズ(feature mapのサイズからの相対値)
-    sizes = np.sqrt((bboxes[:, 2] - bboxes[:, 0]) * (bboxes[:, 3] - bboxes[:, 1]))
-    fm_sizes = 1 / np.array(PriorBoxes.FM_COUNTS)
-    pb_size_ratios = np.concatenate([sizes / fm_size for fm_size in fm_sizes])
-    pb_size_ratios = pb_size_ratios[np.logical_and(pb_size_ratios >= 1.5, pb_size_ratios <= 4.5)]
-    cluster = sklearn.cluster.KMeans(n_clusters=_PB_SIZE_PATTERNS, n_jobs=-1)
-    cluster.fit(np.expand_dims(pb_size_ratios, axis=-1))
-    pb_size_ratios = np.sort(cluster.cluster_centers_[:, 0])
-    logger.debug('prior box size ratios = %s', str(pb_size_ratios))
-    # アスペクト比
-    log_ars = np.log((bboxes[:, 2] - bboxes[:, 0]) / (bboxes[:, 3] - bboxes[:, 1]))
-    cluster = sklearn.cluster.KMeans(n_clusters=_ASPECT_RATIO_PATTERNS, n_jobs=-1)
-    cluster.fit(np.expand_dims(log_ars, axis=-1))
-    aspect_ratios = np.sort(np.exp(cluster.cluster_centers_[:, 0]))
-    logger.debug('aspect ratios = %s', str(aspect_ratios))
-
-    pbox = PriorBoxes(nb_classes, mean_objets, pb_size_ratios, aspect_ratios)
-    logger.debug('prior box count = %d', len(pbox.pb_locs))
-    logger.debug('prior box sizes = %s', str(np.unique(pbox.pb_sizes)))
+    pbox = _create_pbox(y_train, logger)
 
     # prior boxのカバー度合いのチェック
     if _CHECK_PRIOR_BOX:
-        # pbox.check_prior_boxes(logger, result_dir, y_train)
         pbox.check_prior_boxes(logger, result_dir, y_test)
 
     import keras
@@ -686,8 +588,8 @@ def _run(logger, result_dir: pathlib.Path, data_dir: pathlib.Path):
     keras.utils.plot_model(model, str(result_dir.joinpath('model.png')), show_shapes=True)
 
     # 事前学習の読み込み
-    if _USE_BN:
-        model.load_weights(str(result_dir.parent.joinpath('voc_pre', 'model.h5')), by_name=True)
+    # if _USE_BN:
+    #     model.load_weights(str(result_dir.parent.joinpath('voc_pre', 'model.h5')), by_name=True)
 
     gen = Generator(image_size=input_shape[:2], pbox=pbox)
     gen.add(0.5, tk.image.FlipLR())
@@ -708,8 +610,11 @@ def _run(logger, result_dir: pathlib.Path, data_dir: pathlib.Path):
     gen.add(0.125, tk.image.RandomContrast())
     gen.add(0.125, tk.image.RandomLighting())
 
+    # lr_list = [_BASE_LR] * (_MAX_EPOCH * 6 // 9) + [_BASE_LR / 10] * (_MAX_EPOCH * 2 // 9) + [_BASE_LR / 100] * (_MAX_EPOCH * 1 // 9)
+
     callbacks = []
-    callbacks.append(tk.dl.my_callback_factory()(result_dir, base_lr=1e-3))
+    # callbacks.append(tk.dl.my_callback_factory()(result_dir, lr_list=lr_list))
+    callbacks.append(tk.dl.my_callback_factory()(result_dir, base_lr=_BASE_LR, beta1=0.9990, beta2=0.9995))
     callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'loss'))
     callbacks.append(keras.callbacks.ModelCheckpoint(str(result_dir.joinpath('model.best.h5')), save_best_only=True))
     # callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'acc'))
@@ -717,30 +622,141 @@ def _run(logger, result_dir: pathlib.Path, data_dir: pathlib.Path):
     #     callbacks.append(keras.callbacks.TensorBoard())
 
     # 各epoch毎にmAPを算出して表示してみる
-    if _DEBUG or _PRINT_MAP:
+    if _DEBUG or _EVALUATE:
         callbacks.append(keras.callbacks.LambdaCallback(
-            on_epoch_end=lambda epoch, logs: print_map(logger, pbox, model, gen, X_test, y_test, epoch)
+            on_epoch_end=lambda epoch, logs: evaluate(logger, pbox, model, gen, X_test, y_test, epoch, result_dir)
         ))
 
     model.fit_generator(
-        gen.flow(X_train, y_train_arr, batch_size=_BATCH_SIZE, data_augmentation=not _DEBUG, shuffle=not _DEBUG),
-        steps_per_epoch=gen.steps_per_epoch(X_train.shape[0], _BATCH_SIZE),
+        gen.flow(X_train, y_train, batch_size=_BATCH_SIZE, data_augmentation=not _DEBUG, shuffle=not _DEBUG),
+        steps_per_epoch=gen.steps_per_epoch(len(X_train), _BATCH_SIZE),
         epochs=_MAX_EPOCH,
-        validation_data=gen.flow(X_test, y_test_arr, batch_size=_BATCH_SIZE),
-        validation_steps=gen.steps_per_epoch(X_test.shape[0], _BATCH_SIZE),
+        validation_data=gen.flow(X_test, y_test, batch_size=_BATCH_SIZE),
+        validation_steps=gen.steps_per_epoch(len(X_test), _BATCH_SIZE),
         callbacks=callbacks)
 
     model.save(str(result_dir.joinpath('model.h5')))
 
     # 最終結果表示
-    print_map(logger, pbox, model, gen, X_test, y_test, None)
-    plot_result(pbox, model, gen, X_test[:_BATCH_SIZE], result_dir.joinpath('___check'))
+    evaluate(logger, pbox, model, gen, X_test, y_test, None, result_dir)
+
+
+def _create_pbox(y_train, logger):
+    """訓練データからパラメータを適当に決める。
+
+    gridに配置したときのIOUを直接最適化するのは難しそうなので、
+    とりあえず大雑把にKMeansでクラスタ化したりなど。
+    """
+    bboxes = np.concatenate([y.bboxes for y in y_train])
+    # 平均オブジェクト数
+    mean_objets = np.mean([len(y.bboxes) for y in y_train])
+    logger.debug('mean objects / image = %f', mean_objets)
+    # サイズ(feature mapのサイズからの相対値)
+    sizes = np.sqrt((bboxes[:, 2] - bboxes[:, 0]) * (bboxes[:, 3] - bboxes[:, 1]))
+    fm_sizes = 1 / np.array(PriorBoxes.FM_COUNTS)
+    pb_size_ratios = np.concatenate([sizes / fm_size for fm_size in fm_sizes])
+    pb_size_ratios = pb_size_ratios[np.logical_and(pb_size_ratios >= 1.5, pb_size_ratios <= 4.5)]
+    cluster = sklearn.cluster.KMeans(n_clusters=_PB_SIZE_PATTERNS, n_jobs=-1)
+    cluster.fit(np.expand_dims(pb_size_ratios, axis=-1))
+    pb_size_ratios = np.sort(cluster.cluster_centers_[:, 0])
+    logger.debug('prior box size ratios = %s', str(pb_size_ratios))
+    # アスペクト比
+    log_ars = np.log((bboxes[:, 2] - bboxes[:, 0]) / (bboxes[:, 3] - bboxes[:, 1]))
+    cluster = sklearn.cluster.KMeans(n_clusters=_ASPECT_RATIO_PATTERNS, n_jobs=-1)
+    cluster.fit(np.expand_dims(log_ars, axis=-1))
+    aspect_ratios = np.sort(np.exp(cluster.cluster_centers_[:, 0]))
+    logger.debug('aspect ratios = %s', str(aspect_ratios))
+
+    nb_classes = len(_CLASS_NAMES)
+    pbox = PriorBoxes(nb_classes, mean_objets, pb_size_ratios, aspect_ratios)
+    logger.debug('prior box count = %d', len(pbox.pb_locs))
+    logger.debug('prior box sizes = %s', str(np.unique(pbox.pb_sizes)))
+    return pbox
+
+
+def load_data(data_dir: pathlib.Path):
+    """データの読み込み"""
+    X_train = np.array(
+        tk.io.read_all_lines(data_dir.joinpath('VOCdevkit', 'VOC2007', 'ImageSets', 'Main', 'trainval.txt')) +
+        tk.io.read_all_lines(data_dir.joinpath('VOCdevkit', 'VOC2012', 'ImageSets', 'Main', 'trainval.txt'))
+    )
+    X_test = np.array(
+        tk.io.read_all_lines(data_dir.joinpath('VOCdevkit', 'VOC2007', 'ImageSets', 'Main', 'test.txt'))
+    )
+    if _DEBUG:
+        X_test = X_test[:_BATCH_SIZE]  # 先頭バッチサイズ分だけを使用
+        rep = int(np.ceil((len(X_train) / len(X_test)) ** 0.9))  # 個数を減らした分、水増しする。
+        X_train = np.tile(X_test, rep)
+    annotations = load_annotations(data_dir)
+    y_train = np.array([annotations[x] for x in X_train])
+    y_test = np.array([annotations[x] for x in X_test])
+    # Xのフルパス化
+    X_train = np.array([data_dir.joinpath('VOCdevkit', y.folder, 'JPEGImages', y.filename) for y in y_train])
+    X_test = np.array([data_dir.joinpath('VOCdevkit', y.folder, 'JPEGImages', y.filename) for y in y_test])
+    return (X_train, y_train), (X_test, y_test)
 
 
 def load_annotations(data_dir: pathlib.Path) -> dict:
     """VOC2007,VOC2012のアノテーションデータの読み込み。"""
     data = {}
     for folder in ('VOC2007', 'VOC2012'):
-        data.update(tk.ml.load_voc_annotations(
+        data.update(tk.ml.ObjectsAnnotation.load_voc(
             data_dir.joinpath('VOCdevkit', folder, 'Annotations'), _CLASS_NAME_TO_ID))
     return data
+
+
+def evaluate(logger, pbox, model, gen, X_test, y_test, epoch, result_dir):
+    """`mAP`を算出してprintする。"""
+    if epoch is not None and not (epoch % 16 == 0 or epoch & (epoch - 1) == 0):
+        return  # 重いので16回あたり1回だけ実施
+    if epoch is not None:
+        print('')
+
+    pred_classes_list = []
+    pred_locs_list = []
+    steps = gen.steps_per_epoch(len(X_test), _BATCH_SIZE)
+    for i, X_batch in enumerate(tqdm(gen.flow(X_test, batch_size=_BATCH_SIZE), desc='', ascii=True, ncols=100, total=steps)):
+        pred = model.predict(X_batch)
+        pred_classes, pred_confs, pred_locs = pbox.decode_predictions(pred)
+        pred_classes_list += pred_classes
+        pred_locs_list += pred_locs
+        if i == 0:
+            save_dir = result_dir.joinpath('___check')
+            for j, (pcl, pcf, pl) in enumerate(zip(pred_classes, pred_confs, pred_locs)):
+                tk.ml.plot_objects(
+                    X_test[j], save_dir.joinpath(pathlib.Path(X_test[j]).name + '.png'),
+                    pcl, pcf, pl, _CLASS_NAMES)
+        if i + 1 >= steps:
+            break
+
+    gt_classes_list = np.array([y.classes for y in y_test])
+    gt_bboxes_list = np.array([y.bboxes for y in y_test])
+    gt_difficults_list = np.array([y.difficults for y in y_test])
+    map1 = tk.ml.compute_map(gt_classes_list, gt_bboxes_list, gt_difficults_list, pred_classes_list, pred_locs_list, use_voc2007_metric=False)
+    map2 = tk.ml.compute_map(gt_classes_list, gt_bboxes_list, gt_difficults_list, pred_classes_list, pred_locs_list, use_voc2007_metric=True)
+
+    logger.debug('mAP={:.4f} mAP(VOC2007)={:.4f}'.format(map1, map2))
+    if epoch is not None:
+        print('')
+
+
+def plot_truth(X_test, y_test, save_dir):
+    """正解データの画像化。"""
+    for X, y in zip(X_test, y_test):
+        tk.ml.plot_objects(
+            X, save_dir.joinpath(pathlib.Path(X).name + '.png'),
+            y.classes, None, y.bboxes, _CLASS_NAMES)
+
+
+def plot_result(pbox, model, gen, X_test, save_dir):
+    """結果の画像化。"""
+    pred = model.predict_generator(
+        gen.flow(X_test, batch_size=_BATCH_SIZE),
+        gen.steps_per_epoch(len(X_test), _BATCH_SIZE),
+        verbose=1)
+    pred_classes_list, pred_confs_list, pred_locs_list = pbox.decode_predictions(pred)
+
+    for X, pred_classes, pred_confs, pred_locs in zip(X_test, pred_classes_list, pred_confs_list, pred_locs_list):
+        tk.ml.plot_objects(
+            X, save_dir.joinpath(pathlib.Path(X).name + '.png'),
+            pred_classes, pred_confs, pred_locs, _CLASS_NAMES)
