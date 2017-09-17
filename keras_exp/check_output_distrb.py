@@ -73,5 +73,6 @@ def _main():
             pred = model.predict(X)
             print('{:20s}: mean={:6.3f} std={:6.3f}'.format(c.__name__, np.mean(pred), np.std(pred)))
 
+
 if __name__ == '__main__':
     _main()

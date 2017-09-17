@@ -1,6 +1,10 @@
 """Object Detectionのためのベースネットワークの事前学習。"""
+import os
 import pathlib
+import time
 
+import better_exceptions
+import numpy as np
 import sklearn.metrics
 
 import pytoolkit as tk
@@ -15,7 +19,7 @@ def _create_model(nb_classes: int, input_shape: tuple):
 
     def _conv(x, filters, kernel_size, name=None, **kargs):
         assert name is not None
-        x = keras.layers.Conv2D(filters, kernel_size, use_bias=False, name=name + '_conv', **kargs)(x)
+        x = keras.layers.Conv2D(filters, kernel_size, use_bias=False, name=name, **kargs)(x)
         x = keras.layers.BatchNormalization(name=name + '_bn')(x)
         x = keras.layers.ELU(name=name + '_act')(x)
         return x
@@ -82,15 +86,7 @@ def _create_model(nb_classes: int, input_shape: tuple):
     return model
 
 
-def run(logger, result_dir: pathlib.Path):
-    """実行。"""
-    import keras.backend as K
-    K.set_image_dim_ordering('tf')
-    with tk.dl.session():
-        _run(logger, result_dir)
-
-
-def _run(logger, result_dir: pathlib.Path):
+def _run2(logger, result_dir: pathlib.Path):
     import keras
     import keras.preprocessing.image
 
@@ -154,3 +150,35 @@ def _run(logger, result_dir: pathlib.Path):
         gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE))
     cm = sklearn.metrics.confusion_matrix(y_test.argmax(axis=-1), pred.argmax(axis=-1))
     tk.ml.plot_cm(cm, result_dir.joinpath('confusion_matrix.png'))
+
+
+def _run(logger, result_dir: pathlib.Path):
+    import keras.backend as K
+    K.set_image_dim_ordering('tf')
+    with tk.dl.session():
+        _run2(logger, result_dir)
+
+
+def _main():
+    import matplotlib as mpl
+    mpl.use('Agg')
+
+    better_exceptions.MAX_LENGTH = 128
+
+    base_dir = pathlib.Path(os.path.realpath(__file__)).parent.parent
+    os.chdir(str(base_dir))
+    np.random.seed(1337)  # for reproducibility
+
+    result_dir = base_dir.joinpath('results', pathlib.Path(__file__).stem)
+    result_dir.mkdir(parents=True, exist_ok=True)
+    logger = tk.create_tee_logger(result_dir.joinpath('output.log'))
+
+    start_time = time.time()
+    _run(logger, result_dir)
+    elapsed_time = time.time() - start_time
+
+    logger.info('Elapsed time = %d [s]', int(np.ceil(elapsed_time)))
+
+
+if __name__ == '__main__':
+    _main()

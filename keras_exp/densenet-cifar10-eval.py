@@ -2,6 +2,7 @@
 
 import better_exceptions
 import keras
+import keras.backend as K
 import keras.preprocessing.image
 import keras_contrib.applications
 
@@ -11,11 +12,14 @@ MAX_EPOCH = 300
 
 def _preprocess_input(x, data_format=None):
     """Preprocesses a tensor encoding a batch of images.
+
     # Arguments
         x: input Numpy tensor, 4D.
         data_format: data format of the image tensor.
+
     # Returns
         Preprocessed tensor.
+
     """
     if data_format is None:
         data_format = K.image_data_format()

@@ -3,8 +3,11 @@
 -train: VOC2007 trainval + VOC2012 trainval
 -test:  VOC2007 test
 """
+import os
 import pathlib
+import time
 
+import better_exceptions
 import numpy as np
 import sklearn.cluster
 import sklearn.metrics
@@ -206,6 +209,20 @@ class PriorBoxes(object):
         return loss
 
     @staticmethod
+    def loss_loc(y_true, y_pred):
+        """位置の損失項。"""
+        import keras.backend as K
+        gt_confs, gt_locs = y_true[:, :, :-4], y_true[:, :, -4:]
+        pred_locs = y_pred[:, :, -4:]
+
+        obj_mask = gt_confs[:, :, 0] < 0.5  # 背景以外
+        obj_mask = K.cast(obj_mask, K.floatx())
+        obj_count = K.sum(obj_mask, axis=-1)
+        obj_div = K.maximum(obj_count, K.ones_like(obj_count))
+
+        return PriorBoxes._loss_loc(gt_locs, pred_locs, obj_mask, obj_div)
+
+    @staticmethod
     def acc_bg(y_true, y_pred):
         """背景の正解率。"""
         import keras.backend as K
@@ -232,20 +249,6 @@ class PriorBoxes(object):
 
         acc = K.cast(K.equal(K.argmax(gt_confs, axis=-1), K.argmax(pred_confs, axis=-1)), K.floatx())
         return K.sum(acc * obj_mask, axis=-1) / obj_count
-
-    @staticmethod
-    def loss_loc(y_true, y_pred):
-        """位置の損失項。"""
-        import keras.backend as K
-        gt_confs, gt_locs = y_true[:, :, :-4], y_true[:, :, -4:]
-        pred_locs = y_pred[:, :, -4:]
-
-        obj_mask = gt_confs[:, :, 0] < 0.5  # 背景以外
-        obj_mask = K.cast(obj_mask, K.floatx())
-        obj_count = K.sum(obj_mask, axis=-1)
-        obj_div = K.maximum(obj_count, K.ones_like(obj_count))
-
-        return PriorBoxes._loss_loc(gt_locs, pred_locs, obj_mask, obj_div)
 
     def encode_truth(self, y_gt):
         """学習用の`y_true`の作成。
@@ -484,7 +487,7 @@ def _create_model(input_shape: tuple, pbox: PriorBoxes):
         #     keras.layers.Conv2D(512, (1, 1), use_bias=not _USE_BN, name='pm-pre'),
         # ] + ([keras.layers.BatchNormalization(name='pm-pre_bn')] if _USE_BN else []) + [
         #     keras.layers.ELU(name='pm-pre_act'),
-        #tk.dl.l2normalization_layer()(np.sqrt(512), name='pm-norm'),
+        # tk.dl.l2normalization_layer()(np.sqrt(512), name='pm-norm'),
     ]
     pm_conf_layers = [
         keras.layers.Conv2D(
@@ -552,14 +555,6 @@ class Generator(tk.image.ImageDataGenerator):
         return rgb
 
 
-def run(logger, result_dir: pathlib.Path, data_dir: pathlib.Path):
-    """実行。"""
-    import keras.backend as K
-    K.set_image_dim_ordering('tf')
-    with tk.dl.session():
-        _run(logger, result_dir, data_dir)
-
-
 def _run(logger, result_dir: pathlib.Path, data_dir: pathlib.Path):
     """実行。"""
     # データの読み込み
@@ -581,64 +576,67 @@ def _run(logger, result_dir: pathlib.Path, data_dir: pathlib.Path):
         pbox.check_prior_boxes(logger, result_dir, y_test)
 
     import keras
-    input_shape = pbox.input_size + (3,)
-    model = _create_model(input_shape, pbox)
-    model.summary(print_fn=logger.debug)
-    tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))
-    keras.utils.plot_model(model, str(result_dir.joinpath('model.png')), show_shapes=True)
+    import keras.backend as K
+    K.set_image_dim_ordering('tf')
+    with tk.dl.session():
+        input_shape = pbox.input_size + (3,)
+        model = _create_model(input_shape, pbox)
+        model.summary(print_fn=logger.debug)
+        tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))
+        keras.utils.plot_model(model, str(result_dir.joinpath('model.png')), show_shapes=True)
 
-    # 事前学習の読み込み
-    # if _USE_BN:
-    #     model.load_weights(str(result_dir.parent.joinpath('voc_pre', 'model.h5')), by_name=True)
+        # 事前学習の読み込み
+        # if _USE_BN:
+        #     model.load_weights(str(result_dir.parent.joinpath('voc_pre', 'model.h5')), by_name=True)
 
-    gen = Generator(image_size=input_shape[:2], pbox=pbox)
-    gen.add(0.5, tk.image.FlipLR())
-    gen.add(0.125, tk.image.RandomBlur())
-    gen.add(0.125, tk.image.RandomBlur(partial=True))
-    gen.add(0.125, tk.image.RandomUnsharpMask())
-    gen.add(0.125, tk.image.RandomUnsharpMask(partial=True))
-    gen.add(0.125, tk.image.Sharp())
-    gen.add(0.125, tk.image.Sharp(partial=True))
-    gen.add(0.125, tk.image.Soft())
-    gen.add(0.125, tk.image.Soft(partial=True))
-    gen.add(0.125, tk.image.RandomMedian())
-    gen.add(0.125, tk.image.RandomMedian(partial=True))
-    gen.add(0.125, tk.image.GaussianNoise())
-    gen.add(0.125, tk.image.GaussianNoise(partial=True))
-    gen.add(0.125, tk.image.RandomSaturation())
-    gen.add(0.125, tk.image.RandomBrightness())
-    gen.add(0.125, tk.image.RandomContrast())
-    gen.add(0.125, tk.image.RandomLighting())
+        gen = Generator(image_size=input_shape[:2], pbox=pbox)
+        gen.add(0.5, tk.image.FlipLR())
+        gen.add(0.125, tk.image.RandomBlur())
+        gen.add(0.125, tk.image.RandomBlur(partial=True))
+        gen.add(0.125, tk.image.RandomUnsharpMask())
+        gen.add(0.125, tk.image.RandomUnsharpMask(partial=True))
+        gen.add(0.125, tk.image.Sharp())
+        gen.add(0.125, tk.image.Sharp(partial=True))
+        gen.add(0.125, tk.image.Soft())
+        gen.add(0.125, tk.image.Soft(partial=True))
+        gen.add(0.125, tk.image.RandomMedian())
+        gen.add(0.125, tk.image.RandomMedian(partial=True))
+        gen.add(0.125, tk.image.GaussianNoise())
+        gen.add(0.125, tk.image.GaussianNoise(partial=True))
+        gen.add(0.125, tk.image.RandomSaturation())
+        gen.add(0.125, tk.image.RandomBrightness())
+        gen.add(0.125, tk.image.RandomContrast())
+        gen.add(0.125, tk.image.RandomLighting())
 
-    # lr_list = [_BASE_LR] * (_MAX_EPOCH * 6 // 9) + [_BASE_LR / 10] * (_MAX_EPOCH * 2 // 9) + [_BASE_LR / 100] * (_MAX_EPOCH * 1 // 9)
+        # lr_list = [_BASE_LR] * (_MAX_EPOCH * 6 // 9) + [_BASE_LR / 10] * (_MAX_EPOCH * 2 // 9) + [_BASE_LR / 100] * (_MAX_EPOCH * 1 // 9)
 
-    callbacks = []
-    # callbacks.append(tk.dl.my_callback_factory()(result_dir, lr_list=lr_list))
-    callbacks.append(tk.dl.my_callback_factory()(result_dir, base_lr=_BASE_LR, beta1=0.9990, beta2=0.9995))
-    callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'loss'))
-    callbacks.append(keras.callbacks.ModelCheckpoint(str(result_dir.joinpath('model.best.h5')), save_best_only=True))
-    # callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'acc'))
-    # if K.backend() == 'tensorflow':
-    #     callbacks.append(keras.callbacks.TensorBoard())
+        callbacks = []
+        # callbacks.append(tk.dl.my_callback_factory()(result_dir, lr_list=lr_list))
+        callbacks.append(tk.dl.my_callback_factory()(result_dir, base_lr=_BASE_LR, beta1=0.9990, beta2=0.9995))
+        callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'loss'))
+        callbacks.append(keras.callbacks.ModelCheckpoint(str(result_dir.joinpath('model.best.h5')), save_best_only=True))
+        # callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'acc'))
+        # if K.backend() == 'tensorflow':
+        #     callbacks.append(keras.callbacks.TensorBoard())
 
-    # 各epoch毎にmAPを算出して表示してみる
-    if _DEBUG or _EVALUATE:
-        callbacks.append(keras.callbacks.LambdaCallback(
-            on_epoch_end=lambda epoch, logs: evaluate(logger, pbox, model, gen, X_test, y_test, epoch, result_dir)
-        ))
+        # 各epoch毎にmAPを算出して表示してみる
+        if _DEBUG or _EVALUATE:
+            callbacks.append(keras.callbacks.LambdaCallback(
+                on_epoch_end=lambda epoch, logs: evaluate(logger, pbox, model, gen, X_test, y_test, epoch, result_dir)
+            ))
 
-    model.fit_generator(
-        gen.flow(X_train, y_train, batch_size=_BATCH_SIZE, data_augmentation=not _DEBUG, shuffle=not _DEBUG),
-        steps_per_epoch=gen.steps_per_epoch(len(X_train), _BATCH_SIZE),
-        epochs=_MAX_EPOCH,
-        validation_data=gen.flow(X_test, y_test, batch_size=_BATCH_SIZE),
-        validation_steps=gen.steps_per_epoch(len(X_test), _BATCH_SIZE),
-        callbacks=callbacks)
+        model.fit_generator(
+            gen.flow(X_train, y_train, batch_size=_BATCH_SIZE, data_augmentation=not _DEBUG, shuffle=not _DEBUG),
+            steps_per_epoch=gen.steps_per_epoch(len(X_train), _BATCH_SIZE),
+            epochs=_MAX_EPOCH,
+            validation_data=gen.flow(X_test, y_test, batch_size=_BATCH_SIZE),
+            validation_steps=gen.steps_per_epoch(len(X_test), _BATCH_SIZE),
+            callbacks=callbacks)
 
-    model.save(str(result_dir.joinpath('model.h5')))
+        model.save(str(result_dir.joinpath('model.h5')))
 
-    # 最終結果表示
-    evaluate(logger, pbox, model, gen, X_test, y_test, None, result_dir)
+        # 最終結果表示
+        evaluate(logger, pbox, model, gen, X_test, y_test, None, result_dir)
 
 
 def _create_pbox(y_train, logger):
@@ -760,3 +758,28 @@ def plot_result(pbox, model, gen, X_test, save_dir):
         tk.ml.plot_objects(
             X, save_dir.joinpath(pathlib.Path(X).name + '.png'),
             pred_classes, pred_confs, pred_locs, _CLASS_NAMES)
+
+
+def _main():
+    import matplotlib as mpl
+    mpl.use('Agg')
+
+    better_exceptions.MAX_LENGTH = 128
+
+    base_dir = pathlib.Path(os.path.realpath(__file__)).parent.parent
+    os.chdir(str(base_dir))
+    np.random.seed(1337)  # for reproducibility
+
+    result_dir = base_dir.joinpath('results', pathlib.Path(__file__).stem)
+    result_dir.mkdir(parents=True, exist_ok=True)
+    logger = tk.create_tee_logger(result_dir.joinpath('output.log'))
+
+    start_time = time.time()
+    _run(logger, result_dir, base_dir.joinpath('data'))
+    elapsed_time = time.time() - start_time
+
+    logger.info('Elapsed time = %d [s]', int(np.ceil(elapsed_time)))
+
+
+if __name__ == '__main__':
+    _main()

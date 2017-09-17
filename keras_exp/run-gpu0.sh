@@ -3,4 +3,4 @@ set -eux
 
 export CUDA_VISIBLE_DEVICES=0
 
-python exp.py $*
+python $*
