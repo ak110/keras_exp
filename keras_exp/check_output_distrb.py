@@ -10,9 +10,9 @@ import pytoolkit as tk
 
 def _main():
     input_shape = (32, 32, 64)
-    # X = np.random.normal(0, 1, size=(1000,) + input_shape)
+    X = np.random.normal(0, 1, size=(1000,) + input_shape)
     # X = np.random.uniform(-1, 1, size=(1000,) + input_shape)
-    X = np.random.uniform(0, 1, size=(1000,) + input_shape)
+    # X = np.random.uniform(0, 1, size=(1000,) + input_shape)
 
     with tk.dl.session():
         import keras
@@ -23,6 +23,14 @@ def _main():
 
         def _bn(x):
             x = keras.layers.BatchNormalization()(x)
+            return x
+
+        def _ap(x):
+            x = keras.layers.AveragePooling2D()(x)
+            return x
+
+        def _mp(x):
+            x = keras.layers.MaxPooling2D()(x)
             return x
 
         def _conv_relu(x):
@@ -58,6 +66,8 @@ def _main():
         checks = [
             _conv,
             _bn,
+            _ap,
+            _mp,
             _conv_relu,
             _conv_elu,
             _conv_elu175,
