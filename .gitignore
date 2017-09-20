@@ -1,8 +1,6 @@
 ﻿__pycache__/
 .vscode
 
-data/VOCdevkit
-
 # 作業用
 *___*
 
@@ -11,7 +9,3 @@ model.h5
 model.png
 model.params.png
 batchlog.tsv
-
-# これだけ面倒なので保存しちゃう
-!results/voc_pre/*
-
