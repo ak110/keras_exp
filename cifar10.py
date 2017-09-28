@@ -146,7 +146,7 @@ def _main():
 
     better_exceptions.MAX_LENGTH = 128
 
-    base_dir = pathlib.Path(os.path.realpath(__file__)).parent.parent
+    base_dir = pathlib.Path(os.path.realpath(__file__)).parent
     os.chdir(str(base_dir))
     np.random.seed(1337)  # for reproducibility
 

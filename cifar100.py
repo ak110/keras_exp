@@ -9,8 +9,9 @@ import sklearn.metrics
 
 import pytoolkit as tk
 
-BATCH_SIZE = 100
+BATCH_SIZE = 50
 MAX_EPOCH = 300
+USE_NADAM = False
 
 
 def _create_model(nb_classes: int, input_shape: tuple):
@@ -66,7 +67,10 @@ def _create_model(nb_classes: int, input_shape: tuple):
     x = keras.layers.Dense(nb_classes, activation='softmax', kernel_regularizer='l2', name='predictions')(x)
 
     model = keras.models.Model(inputs=inp, outputs=x)
-    model.compile('nadam', 'categorical_crossentropy', ['acc'])
+    if USE_NADAM:
+        model.compile('nadam', 'categorical_crossentropy', ['acc'])
+    else:
+        model.compile(keras.optimizers.SGD(momentum=0.9, nesterov=True), 'categorical_crossentropy', ['acc'])
     return model
 
 
@@ -87,11 +91,13 @@ def _run2(logger, result_dir: pathlib.Path):
     tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))
 
     callbacks = []
-    callbacks.append(tk.dl.my_callback_factory()(result_dir, base_lr=1e-3))
+    if USE_NADAM:
+        callbacks.append(tk.dl.my_callback_factory()(result_dir, base_lr=1e-3))
+    else:
+        lr_list = [1e-1] * (MAX_EPOCH // 2) + [1e-2] * (MAX_EPOCH // 4) + [1e-3] * (MAX_EPOCH // 4)
+        callbacks.append(tk.dl.my_callback_factory()(result_dir, lr_list=lr_list))
     callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'loss'))
     callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'acc'))
-    # if K.backend() == 'tensorflow':
-    #     callbacks.append(keras.callbacks.TensorBoard())
 
     gen = tk.image.ImageDataGenerator(input_shape[:2])
     gen.add(0.5, tk.image.FlipLR())
@@ -149,7 +155,7 @@ def _main():
 
     better_exceptions.MAX_LENGTH = 128
 
-    base_dir = pathlib.Path(os.path.realpath(__file__)).parent.parent
+    base_dir = pathlib.Path(os.path.realpath(__file__)).parent
     os.chdir(str(base_dir))
     np.random.seed(1337)  # for reproducibility
 
