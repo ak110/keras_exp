@@ -90,7 +90,7 @@ def _run():
 
     model = _create_model(nb_classes, input_shape)
     model.summary()
-    print('layer depth: {}'.format(sum(isinstance(l, keras.layers.Conv2D) for l in model.layers)))
+    print('network depth: %d', tk.dl.count_network_depth(model))
 
     model.fit(X_train, y_train, epochs=MAX_EPOCH, validation_data=(X_test, y_test))
 

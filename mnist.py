@@ -58,7 +58,7 @@ def _run2(logger, result_dir: pathlib.Path):
 
     model = _create_model(nb_classes, input_shape)
     model.summary(print_fn=logger.debug)
-    logger.debug('layer depth: %d', sum(isinstance(l, keras.layers.Conv2D) for l in model.layers))
+    logger.debug('network depth: %d', tk.dl.count_network_depth(model))
     keras.utils.plot_model(model, str(result_dir.joinpath('model.png')), show_shapes=True)
     tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))
 
