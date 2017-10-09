@@ -88,7 +88,7 @@ def _run2(logger, result_dir: pathlib.Path):
     # if K.backend() == 'tensorflow':
     #     callbacks.append(keras.callbacks.TensorBoard())
 
-    gen = tk.image.ImageDataGenerator(input_shape[:2], label_encoder=tk.ml.to_categorical)
+    gen = tk.image.ImageDataGenerator(input_shape[:2], label_encoder=tk.ml.to_categorical(nb_classes))
     gen.add(0.5, tk.image.FlipLR())
     gen.add(0.5, tk.image.RandomErasing())
     gen.add(0.125, tk.image.RandomBlur())
@@ -125,7 +125,7 @@ def _run2(logger, result_dir: pathlib.Path):
     pred = model.predict_generator(
         gen.flow(X_test, batch_size=BATCH_SIZE),
         gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE))
-    cm = sklearn.metrics.confusion_matrix(y_test.argmax(axis=-1), pred.argmax(axis=-1))
+    cm = sklearn.metrics.confusion_matrix(y_test, pred.argmax(axis=-1))
     tk.ml.plot_cm(cm, result_dir.joinpath('confusion_matrix.png'))
 
 
