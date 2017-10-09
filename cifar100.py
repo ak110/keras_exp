@@ -9,62 +9,60 @@ import sklearn.metrics
 
 import pytoolkit as tk
 
-BATCH_SIZE = 50
-MAX_EPOCH = 300
+BATCH_SIZE = 25
+MAX_EPOCH = 100
 USE_NADAM = False
 
 
 def _create_model(nb_classes: int, input_shape: tuple):
     import keras
-    import keras.backend as K
+    from keras.regularizers import l2
 
-    def _conv(x, filters, kernel_size, name=None, **kargs):
-        assert name is not None
-        x = keras.layers.Conv2D(filters, kernel_size, use_bias=False, name=name, **kargs)(x)
-        x = keras.layers.BatchNormalization(name=name + '_bn')(x)
-        x = keras.layers.ELU(name=name + '_act')(x)
+    def _expand(x, filters, strides, name):
+        sc = keras.layers.Conv2D(filters, (1, 1), strides=strides, padding='same', use_bias=False,
+                                 kernel_initializer='he_uniform')(x)
+
+        x = tk.dl.conv2d(filters, (3, 3), strides=strides, padding='same', activation='relu',
+                         kernel_initializer='he_uniform',
+                         name='{}_c1'.format(name))(x)
+        x = keras.layers.Conv2D(filters, (3, 3), padding='same', use_bias=False,
+                                kernel_initializer='he_uniform')(x)
+
+        x = keras.layers.Add()([sc, x])
         return x
 
-    def _branch(x, filters, name):
-        x = _conv(x, filters, (3, 3), padding='same', name=name + '_c1')
-        x = keras.layers.Dropout(0.25, name=name + '_drop')(x)
-        x = _conv(x, filters, (3, 3), padding='same', name=name + '_c2')
+    def _block(x, filters, res_count, name):
+        for res in range(res_count):
+            sc = x
+            x = tk.dl.conv2d(filters, (3, 3), padding='same', activation='relu', preact=True,
+                             kernel_initializer='he_uniform',
+                             name='{}_r{}c1'.format(name, res))(x)
+            x = keras.layers.Dropout(0.25)(x)
+            x = tk.dl.conv2d(filters, (3, 3), padding='same', activation='relu', preact=True,
+                             kernel_initializer='he_uniform',
+                             name='{}_r{}c2'.format(name, res))(x)
+            x = keras.layers.Add()([sc, x])
+        x = keras.layers.BatchNormalization()(x)
+        x = keras.layers.Activation('relu')(x)
         return x
 
-    def _compress(x, filters, name):
-        if filters is None:
-            filters = K.int_shape(x)[-1] // 2
-        x = _conv(x, filters, (1, 1), name=name)
-        return x
-
-    def _block(x, inc_filters, name):
-        for loop in range(2):
-            shortcut = x
-
-            x = _conv(x, inc_filters, (1, 1), padding='same', name=name + str(loop) + '_sq')
-            for i in range(4):
-                b = _branch(x, inc_filters // 4, name=name + str(loop) + '_b' + str(i))
-                x = keras.layers.Concatenate()([x, b])
-
-            x = keras.layers.Concatenate()([shortcut, x])
-        return x
-
-    def _ds(x, name):
-        x = keras.layers.AveragePooling2D(name=name)(x)
-        return x
+    k = 10  # WRN-28-10-dropout: #params=36.5M error=18.85%
 
     x = inp = keras.layers.Input(input_shape)
-    x = _conv(x, 64, (3, 3), padding='same', name='start')
-    x = _block(x, 64, name='stage1_block')
-    x = _compress(x, 128, name='stage1_compress')
-    x = _ds(x, name='stage1_ds')
-    x = _block(x, 512, name='stage2_block')
-    x = _compress(x, 512, name='stage2_compress')
-    x = _ds(x, name='stage2_ds')
-    x = _block(x, 512, name='stage3_block')
-    x = _compress(x, 256, name='stage3_compress')
+    x = tk.dl.conv2d(16, (3, 3), padding='same', activation='relu',
+                     kernel_initializer='he_uniform',
+                     name='start')(x)
+    x = _expand(x, 16 * k, strides=(1, 1), name='stage0_ex')
+    x = _block(x, 16 * k, 3, name='stage1_block')
+    x = _expand(x, 32 * k, strides=(2, 2), name='stage1_ex')
+    x = _block(x, 32 * k, 3, name='stage2_block')
+    x = _expand(x, 64 * k, strides=(2, 2), name='stage2_ex')
+    x = _block(x, 64 * k, 3, name='stage3_block')
     x = keras.layers.GlobalAveragePooling2D()(x)
-    x = keras.layers.Dense(nb_classes, activation='softmax', kernel_regularizer='l2', name='predictions')(x)
+    x = keras.layers.Dense(nb_classes, activation='softmax',
+                           kernel_regularizer=l2(1e-4),
+                           kernel_initializer='he_uniform',
+                           name='predictions')(x)
 
     model = keras.models.Model(inputs=inp, outputs=x)
     if USE_NADAM:
@@ -81,8 +79,6 @@ def _run2(logger, result_dir: pathlib.Path):
     input_shape = (32, 32, 3)
     nb_classes = 100
     (X_train, y_train), (X_test, y_test) = keras.datasets.cifar100.load_data()
-    y_train = keras.utils.to_categorical(y_train, nb_classes)
-    y_test = keras.utils.to_categorical(y_test, nb_classes)
 
     model = _create_model(nb_classes, input_shape)
     model.summary(print_fn=logger.debug)
@@ -99,7 +95,7 @@ def _run2(logger, result_dir: pathlib.Path):
     callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'loss'))
     callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'acc'))
 
-    gen = tk.image.ImageDataGenerator(input_shape[:2])
+    gen = tk.image.ImageDataGenerator(input_shape[:2], label_encoder=tk.ml.to_categorical)
     gen.add(0.5, tk.image.FlipLR())
     gen.add(0.5, tk.image.RandomErasing())
     gen.add(0.125, tk.image.RandomBlur())

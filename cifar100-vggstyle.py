@@ -1,4 +1,4 @@
-"""MNIST."""
+"""CIFAR100."""
 import os
 import pathlib
 import time
@@ -9,38 +9,52 @@ import sklearn.metrics
 
 import pytoolkit as tk
 
-BATCH_SIZE = 100
-MAX_EPOCH = 300
+BATCH_SIZE = 50
+MAX_EPOCH = 100
+USE_NADAM = False
 
 
 def _create_model(nb_classes: int, input_shape: tuple):
     import keras
+    from keras.regularizers import l2
 
-    def _conv(x, filters, kernel_size, name=None, **kargs):
-        assert name is not None
-        x = keras.layers.Conv2D(filters, kernel_size, use_bias=False, name=name, **kargs)(x)
-        x = keras.layers.BatchNormalization(name=name + '_bn')(x)
-        x = keras.layers.ELU(name=name + '_act')(x)
-        return x
-
-    def _ds(x):
-        x = keras.layers.MaxPooling2D()(x)
-        return x
+    def _conv2d(*args, **kargs):
+        def _l(x):
+            activation = kargs.pop('activation')
+            x = keras.layers.Conv2D(*args, **kargs, use_bias=False,
+                                    kernel_regularizer=l2(1e-4),
+                                    bias_regularizer=l2(1e-4))(x)
+            x = keras.layers.BatchNormalization()(x)
+            x = keras.layers.Activation(activation)(x)
+            return x
+        return _l
 
     x = inp = keras.layers.Input(input_shape)
-    x = _conv(x, 32, (3, 3), padding='same', name='conv1a')
-    x = _conv(x, 32, (3, 3), padding='same', name='conv1b')
-    x = _ds(x)
-    x = _conv(x, 32, (3, 3), padding='same', name='conv2a')
-    x = _conv(x, 32, (3, 3), padding='same', name='conv2b')
-    x = _ds(x)
-    x = _conv(x, 32, (3, 3), padding='same', name='conv3a')
-    x = _conv(x, 32, (3, 3), padding='same', name='conv3b')
-    x = keras.layers.Flatten()(x)
-    x = keras.layers.Dense(nb_classes, activation='softmax')(x)
+    x = _conv2d(128, (3, 3), padding='same', activation='relu')(x)
+    x = _conv2d(128, (3, 3), padding='same', activation='relu')(x)
+    x = _conv2d(128, (3, 3), padding='same', activation='relu')(x)
+    x = _conv2d(128, (3, 3), padding='same', activation='relu')(x)
+    x = keras.layers.MaxPooling2D()(x)
+    x = _conv2d(256, (3, 3), padding='same', activation='relu')(x)
+    x = _conv2d(256, (3, 3), padding='same', activation='relu')(x)
+    x = _conv2d(256, (3, 3), padding='same', activation='relu')(x)
+    x = _conv2d(256, (3, 3), padding='same', activation='relu')(x)
+    x = keras.layers.MaxPooling2D()(x)
+    x = _conv2d(512, (3, 3), padding='same', activation='relu')(x)
+    x = _conv2d(512, (3, 3), padding='same', activation='relu')(x)
+    x = _conv2d(512, (3, 3), padding='same', activation='relu')(x)
+    x = _conv2d(512, (3, 3), padding='same', activation='relu')(x)
+    x = keras.layers.GlobalAveragePooling2D()(x)
+    x = keras.layers.Dense(nb_classes, activation='softmax',
+                           kernel_regularizer=l2(1e-4),
+                           bias_regularizer=l2(1e-4),
+                           name='predictions')(x)
 
     model = keras.models.Model(inputs=inp, outputs=x)
-    model.compile('nadam', 'categorical_crossentropy', ['acc'])
+    if USE_NADAM:
+        model.compile('nadam', 'categorical_crossentropy', ['acc'])
+    else:
+        model.compile(keras.optimizers.SGD(momentum=0.9, nesterov=True), 'categorical_crossentropy', ['acc'])
     return model
 
 
@@ -48,11 +62,9 @@ def _run2(logger, result_dir: pathlib.Path):
     import keras
     import keras.preprocessing.image
 
-    input_shape = (28, 28, 1)
-    nb_classes = 10
-    (X_train, y_train), (X_test, y_test) = keras.datasets.mnist.load_data()
-    X_train = X_train.reshape(X_train.shape + (1,))
-    X_test = X_test.reshape(X_test.shape + (1,))
+    input_shape = (32, 32, 3)
+    nb_classes = 100
+    (X_train, y_train), (X_test, y_test) = keras.datasets.cifar100.load_data()
 
     model = _create_model(nb_classes, input_shape)
     model.summary(print_fn=logger.debug)
@@ -61,11 +73,17 @@ def _run2(logger, result_dir: pathlib.Path):
     tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))
 
     callbacks = []
-    callbacks.append(tk.dl.my_callback_factory()(result_dir, base_lr=1e-3))
+    if USE_NADAM:
+        callbacks.append(tk.dl.my_callback_factory()(result_dir, base_lr=1e-3))
+    else:
+        lr_list = [1e-1] * (MAX_EPOCH // 2) + [1e-2] * (MAX_EPOCH // 4) + [1e-3] * (MAX_EPOCH // 4)
+        callbacks.append(tk.dl.my_callback_factory()(result_dir, lr_list=lr_list))
     callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'loss'))
     callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'acc'))
 
-    gen = tk.image.ImageDataGenerator(input_shape[:2], grayscale=True, label_encoder=tk.ml.to_categorical)
+    gen = tk.image.ImageDataGenerator(input_shape[:2], label_encoder=tk.ml.to_categorical)
+    gen.add(0.5, tk.image.FlipLR())
+    gen.add(0.5, tk.image.RandomErasing())
     gen.add(0.125, tk.image.RandomBlur())
     gen.add(0.125, tk.image.RandomBlur(partial=True))
     gen.add(0.125, tk.image.RandomUnsharpMask())
@@ -73,6 +91,12 @@ def _run2(logger, result_dir: pathlib.Path):
     gen.add(0.125, tk.image.Sharp())
     gen.add(0.125, tk.image.Soft())
     gen.add(0.125, tk.image.RandomMedian())
+    gen.add(0.125, tk.image.GaussianNoise())
+    gen.add(0.125, tk.image.GaussianNoise(partial=True))
+    gen.add(0.125, tk.image.RandomSaturation())
+    gen.add(0.125, tk.image.RandomBrightness())
+    gen.add(0.125, tk.image.RandomContrast())
+    gen.add(0.125, tk.image.RandomLighting())
 
     model.fit_generator(
         gen.flow(X_train, y_train, batch_size=BATCH_SIZE, data_augmentation=True, shuffle=True),

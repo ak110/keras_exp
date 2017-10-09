@@ -74,8 +74,6 @@ def _run2(logger, result_dir: pathlib.Path):
     input_shape = (32, 32, 3)
     nb_classes = 10
     (X_train, y_train), (X_test, y_test) = keras.datasets.cifar10.load_data()
-    y_train = keras.utils.to_categorical(y_train, nb_classes)
-    y_test = keras.utils.to_categorical(y_test, nb_classes)
 
     model = _create_model(nb_classes, input_shape)
     model.summary(print_fn=logger.debug)
@@ -90,7 +88,7 @@ def _run2(logger, result_dir: pathlib.Path):
     # if K.backend() == 'tensorflow':
     #     callbacks.append(keras.callbacks.TensorBoard())
 
-    gen = tk.image.ImageDataGenerator(input_shape[:2])
+    gen = tk.image.ImageDataGenerator(input_shape[:2], label_encoder=tk.ml.to_categorical)
     gen.add(0.5, tk.image.FlipLR())
     gen.add(0.5, tk.image.RandomErasing())
     gen.add(0.125, tk.image.RandomBlur())
