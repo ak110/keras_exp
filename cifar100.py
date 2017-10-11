@@ -10,7 +10,7 @@ import sklearn.metrics
 import pytoolkit as tk
 
 BATCH_SIZE = 25
-MAX_EPOCH = 100
+MAX_EPOCH = 160
 USE_NADAM = False
 
 
@@ -18,27 +18,14 @@ def _create_model(nb_classes: int, input_shape: tuple):
     import keras
     from keras.regularizers import l2
 
-    def _expand(x, filters, strides, name):
-        sc = keras.layers.Conv2D(filters, (1, 1), strides=strides, padding='same', use_bias=False,
-                                 kernel_initializer='he_uniform')(x)
-
-        x = tk.dl.conv2d(filters, (3, 3), strides=strides, padding='same', activation='relu',
-                         kernel_initializer='he_uniform',
-                         name='{}_c1'.format(name))(x)
-        x = keras.layers.Conv2D(filters, (3, 3), padding='same', use_bias=False,
-                                kernel_initializer='he_uniform')(x)
-
-        x = keras.layers.Add()([sc, x])
-        return x
-
     def _block(x, filters, res_count, name):
         for res in range(res_count):
             sc = x
-            x = tk.dl.conv2d(filters, (3, 3), padding='same', activation='relu', preact=True,
+            x = tk.dl.conv2d(filters, (3, 3), padding='same', activation='relu',
                              kernel_initializer='he_uniform',
                              name='{}_r{}c1'.format(name, res))(x)
             x = keras.layers.Dropout(0.25)(x)
-            x = tk.dl.conv2d(filters, (3, 3), padding='same', activation='relu', preact=True,
+            x = tk.dl.conv2d(filters, (3, 3), padding='same', activation=None,
                              kernel_initializer='he_uniform',
                              name='{}_r{}c2'.format(name, res))(x)
             x = keras.layers.Add()([sc, x])
@@ -46,18 +33,24 @@ def _create_model(nb_classes: int, input_shape: tuple):
         x = keras.layers.Activation('relu')(x)
         return x
 
+    def _tran(x, filters, name):
+        x = tk.dl.conv2d(filters, (1, 1), padding='same', activation='relu',
+                         kernel_initializer='he_uniform',
+                         name='{}_ex'.format(name))(x)
+        x = keras.layers.MaxPooling2D()(x)
+        return x
+
     k = 10  # WRN-28-10-dropout: #params=36.5M error=18.85%
 
     x = inp = keras.layers.Input(input_shape)
-    x = tk.dl.conv2d(16, (3, 3), padding='same', activation='relu',
+    x = tk.dl.conv2d(16 * k, (3, 3), padding='same', activation='relu',
                      kernel_initializer='he_uniform',
                      name='start')(x)
-    x = _expand(x, 16 * k, strides=(1, 1), name='stage0_ex')
-    x = _block(x, 16 * k, 3, name='stage1_block')
-    x = _expand(x, 32 * k, strides=(2, 2), name='stage1_ex')
-    x = _block(x, 32 * k, 3, name='stage2_block')
-    x = _expand(x, 64 * k, strides=(2, 2), name='stage2_ex')
-    x = _block(x, 64 * k, 3, name='stage3_block')
+    x = _block(x, 16 * k, 4, name='stage1_block')
+    x = _tran(x, 32 * k, name='stage1_tran')
+    x = _block(x, 32 * k, 4, name='stage2_block')
+    x = _tran(x, 64 * k, name='stage2_tran')
+    x = _block(x, 64 * k, 4, name='stage3_block')
     x = keras.layers.GlobalAveragePooling2D()(x)
     x = keras.layers.Dense(nb_classes, activation='softmax',
                            kernel_regularizer=l2(1e-4),
