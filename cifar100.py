@@ -9,7 +9,7 @@ import sklearn.metrics
 
 import pytoolkit as tk
 
-BATCH_SIZE = 25
+BATCH_SIZE = 50
 MAX_EPOCH = 160
 USE_NADAM = False
 
@@ -40,17 +40,15 @@ def _create_model(nb_classes: int, input_shape: tuple):
         x = keras.layers.MaxPooling2D()(x)
         return x
 
-    k = 10  # WRN-28-10-dropout: #params=36.5M error=18.85%
-
     x = inp = keras.layers.Input(input_shape)
-    x = tk.dl.conv2d(16 * k, (3, 3), padding='same', activation='relu',
+    x = tk.dl.conv2d(128, (3, 3), padding='same', activation='relu',
                      kernel_initializer='he_uniform',
                      name='start')(x)
-    x = _block(x, 16 * k, 4, name='stage1_block')
-    x = _tran(x, 32 * k, name='stage1_tran')
-    x = _block(x, 32 * k, 4, name='stage2_block')
-    x = _tran(x, 64 * k, name='stage2_tran')
-    x = _block(x, 64 * k, 4, name='stage3_block')
+    x = _block(x, 128, 6, name='stage1_block')
+    x = _tran(x, 256, name='stage1_tran')
+    x = _block(x, 256, 6, name='stage2_block')
+    x = _tran(x, 512, name='stage2_tran')
+    x = _block(x, 512, 6, name='stage3_block')
     x = keras.layers.GlobalAveragePooling2D()(x)
     x = keras.layers.Dense(nb_classes, activation='softmax',
                            kernel_regularizer=l2(1e-4),
