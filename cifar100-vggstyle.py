@@ -96,7 +96,7 @@ def _run2(logger, result_dir: pathlib.Path):
     gen.add(0.125, tk.image.RandomSaturation())
     gen.add(0.125, tk.image.RandomBrightness())
     gen.add(0.125, tk.image.RandomContrast())
-    gen.add(0.125, tk.image.RandomLighting())
+    gen.add(0.125, tk.image.RandomHue())
 
     model.fit_generator(
         gen.flow(X_train, y_train, batch_size=BATCH_SIZE, data_augmentation=True, shuffle=True),

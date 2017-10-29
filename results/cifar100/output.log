@@ -316,7 +316,7 @@ Trainable params: 37,402,596
 Non-trainable params: 25,088
 ____________________________________________________________________________________________________
 network depth: 40
-Test loss:     0.9713863524794578
-Test accuracy: 0.7957999831438065
-Test error:    0.2042000168561935
-Elapsed time = 72908 [s]
+Test loss:     0.9888741657137871
+Test accuracy: 0.7854999834299088
+Test error:    0.2145000165700912
+Elapsed time = 131450 [s]
