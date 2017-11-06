@@ -10,7 +10,7 @@ import sklearn.metrics
 import pytoolkit as tk
 
 BATCH_SIZE = 50
-MAX_EPOCH = 160
+MAX_EPOCH = 300
 USE_NADAM = False
 
 
@@ -77,6 +77,13 @@ def _run2(logger, result_dir: pathlib.Path):
     keras.utils.plot_model(model, str(result_dir.joinpath('model.png')), show_shapes=True)
     tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))
 
+    gpu_count = tk.dl.gpu_count()
+    logger.debug('gpu count: %d', gpu_count)
+    if gpu_count >= 2:
+        model, batch_size = tk.dl.create_data_parallel_model(model, BATCH_SIZE, gpu_count)
+    else:
+        batch_size = BATCH_SIZE
+
     callbacks = []
     if USE_NADAM:
         callbacks.append(tk.dl.my_callback_factory()(result_dir, base_lr=1e-3))
@@ -104,25 +111,25 @@ def _run2(logger, result_dir: pathlib.Path):
     gen.add(0.125, tk.image.RandomHue())
 
     model.fit_generator(
-        gen.flow(X_train, y_train, batch_size=BATCH_SIZE, data_augmentation=True, shuffle=True),
-        steps_per_epoch=gen.steps_per_epoch(X_train.shape[0], BATCH_SIZE),
+        gen.flow(X_train, y_train, batch_size=batch_size, data_augmentation=True, shuffle=True),
+        steps_per_epoch=gen.steps_per_epoch(X_train.shape[0], batch_size),
         epochs=MAX_EPOCH,
-        validation_data=gen.flow(X_test, y_test, batch_size=BATCH_SIZE),
-        validation_steps=gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE),
+        validation_data=gen.flow(X_test, y_test, batch_size=batch_size),
+        validation_steps=gen.steps_per_epoch(X_test.shape[0], batch_size),
         callbacks=callbacks)
 
     model.save(str(result_dir.joinpath('model.h5')))
 
     score = model.evaluate_generator(
-        gen.flow(X_test, y_test, batch_size=BATCH_SIZE),
-        gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE))
+        gen.flow(X_test, y_test, batch_size=batch_size),
+        gen.steps_per_epoch(X_test.shape[0], batch_size))
     logger.info('Test loss:     {}'.format(score[0]))
     logger.info('Test accuracy: {}'.format(score[1]))
     logger.info('Test error:    {}'.format(1 - score[1]))
 
     pred = model.predict_generator(
-        gen.flow(X_test, batch_size=BATCH_SIZE),
-        gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE))
+        gen.flow(X_test, batch_size=batch_size),
+        gen.steps_per_epoch(X_test.shape[0], batch_size))
     cm = sklearn.metrics.confusion_matrix(y_test, pred.argmax(axis=-1))
     tk.ml.plot_cm(cm, result_dir.joinpath('confusion_matrix.png'))
 
