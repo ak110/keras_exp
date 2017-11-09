@@ -56,10 +56,6 @@ def _create_model(nb_classes: int, input_shape: tuple):
                            name='predictions')(x)
 
     model = keras.models.Model(inputs=inp, outputs=x)
-    if USE_NADAM:
-        model.compile('nadam', 'categorical_crossentropy', ['acc'])
-    else:
-        model.compile(keras.optimizers.SGD(momentum=0.9, nesterov=True), 'categorical_crossentropy', ['acc'])
     return model
 
 
@@ -77,12 +73,17 @@ def _run2(logger, result_dir: pathlib.Path):
     keras.utils.plot_model(model, str(result_dir.joinpath('model.png')), show_shapes=True)
     tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))
 
-    gpu_count = tk.dl.gpu_count()
+    gpu_count = tk.get_gpu_count()
     logger.debug('gpu count: %d', gpu_count)
     if gpu_count >= 2:
         model, batch_size = tk.dl.create_data_parallel_model(model, BATCH_SIZE, gpu_count)
     else:
         batch_size = BATCH_SIZE
+
+    if USE_NADAM:
+        model.compile('nadam', 'categorical_crossentropy', ['acc'])
+    else:
+        model.compile(keras.optimizers.SGD(momentum=0.9, nesterov=True), 'categorical_crossentropy', ['acc'])
 
     callbacks = []
     if USE_NADAM:
