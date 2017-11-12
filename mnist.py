@@ -66,13 +66,14 @@ def _run2(logger, result_dir: pathlib.Path):
     callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'acc'))
 
     gen = tk.image.ImageDataGenerator(input_shape[:2], grayscale=True, label_encoder=tk.ml.to_categorical(nb_classes))
-    gen.add(0.125, tk.image.RandomBlur())
-    gen.add(0.125, tk.image.RandomBlur(partial=True))
-    gen.add(0.125, tk.image.RandomUnsharpMask())
-    gen.add(0.125, tk.image.RandomUnsharpMask(partial=True))
-    gen.add(0.125, tk.image.Sharp())
-    gen.add(0.125, tk.image.Soft())
-    gen.add(0.125, tk.image.RandomMedian())
+    gen.add(0.5, tk.image.RandomErasing())
+    gen.add(0.25, tk.image.RandomBlur())
+    gen.add(0.25, tk.image.RandomBlur(partial=True))
+    gen.add(0.25, tk.image.RandomUnsharpMask())
+    gen.add(0.25, tk.image.RandomUnsharpMask(partial=True))
+    gen.add(0.25, tk.image.RandomMedian())
+    gen.add(0.25, tk.image.GaussianNoise())
+    gen.add(0.25, tk.image.GaussianNoise(partial=True))
 
     model.fit_generator(
         gen.flow(X_train, y_train, batch_size=BATCH_SIZE, data_augmentation=True, shuffle=True),
