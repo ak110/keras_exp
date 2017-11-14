@@ -317,7 +317,7 @@ Non-trainable params: 25,088
 __________________________________________________________________________________________________
 network depth: 40
 gpu count: 4
-Test loss:     0.9503180134296417
-Test accuracy: 0.7924999964237213
-Test error:    0.20750000357627874
-Elapsed time = 25940 [s]
+Test loss:     0.9077536082267761
+Test accuracy: 0.8008999991416931
+Test error:    0.19910000085830692
+Elapsed time = 48019 [s]
