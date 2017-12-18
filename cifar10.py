@@ -82,9 +82,10 @@ def _run2(logger, result_dir: pathlib.Path):
     tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))
 
     callbacks = []
-    callbacks.append(tk.dl.my_callback_factory()(result_dir, base_lr=1e-3))
-    callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'loss'))
-    callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'acc'))
+    callbacks.append(keras.callbacks.CSVLogger(str(result_dir / 'history.tsv'), separator='\t'))
+    callbacks.append(tk.dl.learning_rate_callback(lr=1e-3, epochs=MAX_EPOCH))
+    callbacks.append(tk.dl.learning_curve_plotter(result_dir.joinpath('history.{metric}.png'), 'loss'))
+    callbacks.append(tk.dl.learning_curve_plotter(result_dir.joinpath('history.{metric}.png'), 'acc'))
     # if K.backend() == 'tensorflow':
     #     callbacks.append(keras.callbacks.TensorBoard())
 
@@ -146,7 +147,7 @@ def _main():
 
     result_dir = base_dir.joinpath('results', pathlib.Path(__file__).stem)
     result_dir.mkdir(parents=True, exist_ok=True)
-    logger = tk.create_tee_logger(result_dir.joinpath('output.log'))
+    logger = tk.create_tee_logger(result_dir.joinpath('output.log'), fmt=None)
 
     start_time = time.time()
     _run(logger, result_dir)

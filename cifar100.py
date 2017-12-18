@@ -86,13 +86,10 @@ def _run2(logger, result_dir: pathlib.Path):
         model.compile(keras.optimizers.SGD(momentum=0.9, nesterov=True), 'categorical_crossentropy', ['acc'])
 
     callbacks = []
-    if USE_NADAM:
-        callbacks.append(tk.dl.my_callback_factory()(result_dir, base_lr=1e-3))
-    else:
-        lr_list = [1e-1] * (MAX_EPOCH // 2) + [1e-2] * (MAX_EPOCH // 4) + [1e-3] * (MAX_EPOCH // 4)
-        callbacks.append(tk.dl.my_callback_factory()(result_dir, lr_list=lr_list))
-    callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'loss'))
-    callbacks.append(tk.dl.learning_curve_plotter_factory()(result_dir.joinpath('history.{metric}.png'), 'acc'))
+    callbacks.append(keras.callbacks.CSVLogger(str(result_dir / 'history.tsv'), separator='\t'))
+    callbacks.append(tk.dl.learning_rate_callback(lr=1e-3 if USE_NADAM else 1e-1, epochs=MAX_EPOCH))
+    callbacks.append(tk.dl.learning_curve_plotter(result_dir.joinpath('history.{metric}.png'), 'loss'))
+    callbacks.append(tk.dl.learning_curve_plotter(result_dir.joinpath('history.{metric}.png'), 'acc'))
 
     gen = tk.image.ImageDataGenerator(input_shape[:2], label_encoder=tk.ml.to_categorical(nb_classes))
     gen.add(0.5, tk.image.FlipLR())
@@ -152,7 +149,7 @@ def _main():
 
     result_dir = base_dir.joinpath('results', pathlib.Path(__file__).stem)
     result_dir.mkdir(parents=True, exist_ok=True)
-    logger = tk.create_tee_logger(result_dir.joinpath('output.log'))
+    logger = tk.create_tee_logger(result_dir.joinpath('output.log'), fmt=None)
 
     start_time = time.time()
     _run(logger, result_dir)
