@@ -4,6 +4,7 @@ import pathlib
 import time
 
 import better_exceptions
+import horovod.keras as hvd
 import numpy as np
 import sklearn.metrics
 
@@ -11,7 +12,6 @@ import pytoolkit as tk
 
 BATCH_SIZE = 50
 MAX_EPOCH = 300
-USE_NADAM = False
 
 
 def _create_model(nb_classes: int, input_shape: tuple):
@@ -68,10 +68,18 @@ def _run2(logger, result_dir: pathlib.Path):
     (X_train, y_train), (X_test, y_test) = keras.datasets.cifar100.load_data()
 
     model = _create_model(nb_classes, input_shape)
-    model.summary(print_fn=logger.debug)
-    logger.debug('network depth: %d', tk.dl.count_network_depth(model))
-    keras.utils.plot_model(model, str(result_dir.joinpath('model.png')), show_shapes=True)
-    tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))
+
+    lr = 0.1 * hvd.size()
+    opt = keras.optimizers.SGD(lr=lr, momentum=0.9, nesterov=True)
+    opt = hvd.DistributedOptimizer(opt)
+
+    model.compile(opt, 'categorical_crossentropy', ['acc'])
+
+    if hvd.rank() == 0:
+        model.summary(print_fn=logger.debug)
+        logger.debug('network depth: %d', tk.dl.count_network_depth(model))
+        # keras.utils.plot_model(model, str(result_dir.joinpath('model.png')), show_shapes=True)
+        # tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))
 
     gpu_count = tk.get_gpu_count()
     logger.debug('gpu count: %d', gpu_count)
@@ -86,10 +94,14 @@ def _run2(logger, result_dir: pathlib.Path):
         model.compile(keras.optimizers.SGD(momentum=0.9, nesterov=True), 'categorical_crossentropy', ['acc'])
 
     callbacks = []
-    callbacks.append(keras.callbacks.CSVLogger(str(result_dir / 'history.tsv'), separator='\t'))
-    callbacks.append(tk.dl.learning_rate_callback(lr=1e-3 if USE_NADAM else 1e-1, epochs=MAX_EPOCH))
-    callbacks.append(tk.dl.learning_curve_plotter(result_dir.joinpath('history.{metric}.png'), 'loss'))
-    callbacks.append(tk.dl.learning_curve_plotter(result_dir.joinpath('history.{metric}.png'), 'acc'))
+    callbacks.append(tk.dl.learning_rate_callback(lr=lr, epochs=MAX_EPOCH))
+    callbacks.append(hvd.callbacks.BroadcastGlobalVariablesCallback(0))
+    callbacks.append(hvd.callbacks.MetricAverageCallback())
+    callbacks.append(hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=5, verbose=1))
+    if hvd.rank() == 0:
+        callbacks.append(tk.dl.tsv_log_callback(result_dir / 'history.tsv'))
+        # callbacks.append(tk.dl.learning_curve_plot_callback(result_dir.joinpath('history.{metric}.png'), 'loss'))
+        # callbacks.append(tk.dl.learning_curve_plot_callback(result_dir.joinpath('history.{metric}.png'), 'acc'))
 
     gen = tk.image.ImageDataGenerator(input_shape[:2], label_encoder=tk.ml.to_categorical(nb_classes))
     gen.add(0.5, tk.image.FlipLR())
@@ -107,39 +119,45 @@ def _run2(logger, result_dir: pathlib.Path):
     gen.add(0.5, tk.image.RandomHue())
 
     model.fit_generator(
-        gen.flow(X_train, y_train, batch_size=batch_size, data_augmentation=True, shuffle=True),
-        steps_per_epoch=gen.steps_per_epoch(X_train.shape[0], batch_size),
+        gen.flow(X_train, y_train, batch_size=BATCH_SIZE, data_augmentation=True, shuffle=True),
+        steps_per_epoch=gen.steps_per_epoch(X_train.shape[0], BATCH_SIZE) // hvd.size(),
         epochs=MAX_EPOCH,
-        validation_data=gen.flow(X_test, y_test, batch_size=batch_size),
-        validation_steps=gen.steps_per_epoch(X_test.shape[0], batch_size),
+        verbose=1 if hvd.rank() == 0 else 0,
+        validation_data=gen.flow(X_test, y_test, batch_size=BATCH_SIZE),
+        validation_steps=gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE) * 3 // hvd.size(),
         callbacks=callbacks)
 
-    model.save(str(result_dir.joinpath('model.h5')))
+    if hvd.rank() == 0:
+        model.save(str(result_dir.joinpath('model.h5')))
 
-    score = model.evaluate_generator(
-        gen.flow(X_test, y_test, batch_size=batch_size),
-        gen.steps_per_epoch(X_test.shape[0], batch_size))
-    logger.info('Test loss:     {}'.format(score[0]))
-    logger.info('Test accuracy: {}'.format(score[1]))
-    logger.info('Test error:    {}'.format(1 - score[1]))
+        score = model.evaluate_generator(
+            gen.flow(X_test, y_test, batch_size=BATCH_SIZE),
+            gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE))
+        logger.info('Test loss:     {}'.format(score[0]))
+        logger.info('Test accuracy: {}'.format(score[1]))
+        logger.info('Test error:    {}'.format(1 - score[1]))
 
-    pred = model.predict_generator(
-        gen.flow(X_test, batch_size=batch_size),
-        gen.steps_per_epoch(X_test.shape[0], batch_size))
-    cm = sklearn.metrics.confusion_matrix(y_test, pred.argmax(axis=-1))
-    tk.ml.plot_cm(cm, result_dir.joinpath('confusion_matrix.png'))
+        pred = model.predict_generator(
+            gen.flow(X_test, batch_size=BATCH_SIZE),
+            gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE))
+        # cm = sklearn.metrics.confusion_matrix(y_test, pred.argmax(axis=-1))
+        # tk.ml.plot_cm(cm, result_dir.joinpath('confusion_matrix.png'))
 
 
 def _run(logger, result_dir: pathlib.Path):
     import keras.backend as K
     K.set_image_dim_ordering('tf')
-    with tk.dl.session():
+    with tk.dl.session(gpu_options={'visible_device_list': str(hvd.local_rank())}):
         _run2(logger, result_dir)
 
 
 def _main():
-    import matplotlib as mpl
-    mpl.use('Agg')
+    hvd.init()
+
+    # import matplotlib as mpl
+    # mpl.use('Agg')
+    # import matplotlib.pyplot
+    # assert matplotlib.pyplot is not None  # libpngのエラー対策(怪)
 
     better_exceptions.MAX_LENGTH = 128
 

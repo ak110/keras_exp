@@ -73,10 +73,10 @@ def _run2(logger, result_dir: pathlib.Path):
     tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))
 
     callbacks = []
-    callbacks.append(keras.callbacks.CSVLogger(str(result_dir / 'history.tsv'), separator='\t'))
+    callbacks.append(tk.dl.tsv_log_callback(result_dir / 'history.tsv'))
     callbacks.append(tk.dl.learning_rate_callback(lr=1e-3 if USE_NADAM else 1e-1, epochs=MAX_EPOCH))
-    callbacks.append(tk.dl.learning_curve_plotter(result_dir.joinpath('history.{metric}.png'), 'loss'))
-    callbacks.append(tk.dl.learning_curve_plotter(result_dir.joinpath('history.{metric}.png'), 'acc'))
+    callbacks.append(tk.dl.learning_curve_plot_callback(result_dir.joinpath('history.{metric}.png'), 'loss'))
+    callbacks.append(tk.dl.learning_curve_plot_callback(result_dir.joinpath('history.{metric}.png'), 'acc'))
 
     gen = tk.image.ImageDataGenerator(input_shape[:2], label_encoder=tk.ml.to_categorical(nb_classes))
     gen.add(0.5, tk.image.FlipLR())
