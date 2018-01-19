@@ -72,7 +72,6 @@ def _run2(logger, result_dir: pathlib.Path):
     lr = 0.1 * hvd.size()
     opt = keras.optimizers.SGD(lr=lr, momentum=0.9, nesterov=True)
     opt = hvd.DistributedOptimizer(opt)
-
     model.compile(opt, 'categorical_crossentropy', ['acc'])
 
     if hvd.rank() == 0:
@@ -80,18 +79,6 @@ def _run2(logger, result_dir: pathlib.Path):
         logger.debug('network depth: %d', tk.dl.count_network_depth(model))
         # keras.utils.plot_model(model, str(result_dir.joinpath('model.png')), show_shapes=True)
         # tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))
-
-    gpu_count = tk.get_gpu_count()
-    logger.debug('gpu count: %d', gpu_count)
-    if gpu_count >= 2:
-        model, batch_size = tk.dl.create_data_parallel_model(model, BATCH_SIZE, gpu_count)
-    else:
-        batch_size = BATCH_SIZE
-
-    if USE_NADAM:
-        model.compile('nadam', 'categorical_crossentropy', ['acc'])
-    else:
-        model.compile(keras.optimizers.SGD(momentum=0.9, nesterov=True), 'categorical_crossentropy', ['acc'])
 
     callbacks = []
     callbacks.append(tk.dl.learning_rate_callback(lr=lr, epochs=MAX_EPOCH))
@@ -123,7 +110,7 @@ def _run2(logger, result_dir: pathlib.Path):
         steps_per_epoch=gen.steps_per_epoch(X_train.shape[0], BATCH_SIZE) // hvd.size(),
         epochs=MAX_EPOCH,
         verbose=1 if hvd.rank() == 0 else 0,
-        validation_data=gen.flow(X_test, y_test, batch_size=BATCH_SIZE),
+        validation_data=gen.flow(X_test, y_test, batch_size=BATCH_SIZE, shuffle=True),
         validation_steps=gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE) * 3 // hvd.size(),
         callbacks=callbacks)
 
