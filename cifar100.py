@@ -1,59 +1,49 @@
 """CIFAR100."""
-import os
 import pathlib
 import time
 
 import better_exceptions
 import horovod.keras as hvd
 import numpy as np
-import sklearn.metrics
 
 import pytoolkit as tk
 
-BATCH_SIZE = 50
+BATCH_SIZE = 100
 MAX_EPOCH = 300
 
 
 def _create_model(nb_classes: int, input_shape: tuple):
     import keras
-    from keras.regularizers import l2
+
+    builder = tk.dl.Builder()
+    builder.set_default_l2()
+    builder.conv_defaults['kernel_initializer'] = 'he_uniform'
 
     def _block(x, filters, res_count, name):
         for res in range(res_count):
             sc = x
-            x = tk.dl.conv2d(filters, (3, 3), padding='same', activation='relu',
-                             kernel_initializer='he_uniform',
-                             name='{}_r{}c1'.format(name, res))(x)
+            x = builder.conv2d(filters, (3, 3), name='{}_r{}c1'.format(name, res))(x)
             x = keras.layers.Dropout(0.25)(x)
-            x = tk.dl.conv2d(filters, (3, 3), padding='same', activation=None,
-                             kernel_initializer='he_uniform',
-                             name='{}_r{}c2'.format(name, res))(x)
+            x = builder.conv2d(filters, (3, 3), use_act=False, name='{}_r{}c2'.format(name, res))(x)
             x = keras.layers.Add()([sc, x])
-        x = keras.layers.BatchNormalization()(x)
-        x = keras.layers.Activation('relu')(x)
+        x = builder.bn()(x)
+        x = builder.act()(x)
         return x
 
     def _tran(x, filters, name):
-        x = tk.dl.conv2d(filters, (1, 1), padding='same', activation='relu',
-                         kernel_initializer='he_uniform',
-                         name='{}_ex'.format(name))(x)
+        x = builder.conv2d(filters, (1, 1), name='{}_conv'.format(name))(x)
         x = keras.layers.MaxPooling2D()(x)
         return x
 
     x = inp = keras.layers.Input(input_shape)
-    x = tk.dl.conv2d(128, (3, 3), padding='same', activation='relu',
-                     kernel_initializer='he_uniform',
-                     name='start')(x)
-    x = _block(x, 128, 6, name='stage1_block')
+    x = builder.conv2d(128, (3, 3), name='start')(x)
+    x = _block(x, 128, 4, name='stage1_block')
     x = _tran(x, 256, name='stage1_tran')
-    x = _block(x, 256, 6, name='stage2_block')
+    x = _block(x, 256, 12, name='stage2_block')
     x = _tran(x, 512, name='stage2_tran')
-    x = _block(x, 512, 6, name='stage3_block')
+    x = _block(x, 512, 4, name='stage3_block')
     x = keras.layers.GlobalAveragePooling2D()(x)
-    x = keras.layers.Dense(nb_classes, activation='softmax',
-                           kernel_regularizer=l2(1e-4),
-                           kernel_initializer='he_uniform',
-                           name='predictions')(x)
+    x = builder.dense(nb_classes, activation='softmax', kernel_initializer='zeros', name='predictions')(x)
 
     model = keras.models.Model(inputs=inp, outputs=x)
     return model
@@ -69,7 +59,10 @@ def _run2(logger, result_dir: pathlib.Path):
 
     model = _create_model(nb_classes, input_shape)
 
-    lr = 0.1 * hvd.size()
+    # 学習率：
+    # ・lr 0.5、batch size 256くらいが多いのでその辺を基準に
+    # ・バッチサイズに比例させるのが良いとのうわさ
+    lr = 0.5 * BATCH_SIZE / 256 * hvd.size()
     opt = keras.optimizers.SGD(lr=lr, momentum=0.9, nesterov=True)
     opt = hvd.DistributedOptimizer(opt)
     model.compile(opt, 'categorical_crossentropy', ['acc'])
@@ -111,7 +104,7 @@ def _run2(logger, result_dir: pathlib.Path):
         epochs=MAX_EPOCH,
         verbose=1 if hvd.rank() == 0 else 0,
         validation_data=gen.flow(X_test, y_test, batch_size=BATCH_SIZE, shuffle=True),
-        validation_steps=gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE) * 3 // hvd.size(),
+        validation_steps=gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE) // hvd.size(),  # * 3は省略
         callbacks=callbacks)
 
     if hvd.rank() == 0:
@@ -124,16 +117,14 @@ def _run2(logger, result_dir: pathlib.Path):
         logger.info('Test accuracy: {}'.format(score[1]))
         logger.info('Test error:    {}'.format(1 - score[1]))
 
-        pred = model.predict_generator(
-            gen.flow(X_test, batch_size=BATCH_SIZE),
-            gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE))
+        # pred = model.predict_generator(
+        #     gen.flow(X_test, batch_size=BATCH_SIZE),
+        #     gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE))
         # cm = sklearn.metrics.confusion_matrix(y_test, pred.argmax(axis=-1))
         # tk.ml.plot_cm(cm, result_dir.joinpath('confusion_matrix.png'))
 
 
 def _run(logger, result_dir: pathlib.Path):
-    import keras.backend as K
-    K.set_image_dim_ordering('tf')
     with tk.dl.session(gpu_options={'visible_device_list': str(hvd.local_rank())}):
         _run2(logger, result_dir)
 
@@ -148,10 +139,7 @@ def _main():
 
     better_exceptions.MAX_LENGTH = 128
 
-    base_dir = pathlib.Path(os.path.realpath(__file__)).parent
-    os.chdir(str(base_dir))
-    np.random.seed(1337)  # for reproducibility
-
+    base_dir = pathlib.Path(__file__).resolve().parent
     result_dir = base_dir.joinpath('results', pathlib.Path(__file__).stem)
     result_dir.mkdir(parents=True, exist_ok=True)
     logger = tk.create_tee_logger(result_dir.joinpath('output.log'), fmt=None)

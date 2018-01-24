@@ -101,8 +101,6 @@ def _run2(logger, result_dir: pathlib.Path):
 
 
 def _run(logger, result_dir: pathlib.Path):
-    import keras.backend as K
-    K.set_image_dim_ordering('tf')
     with tk.dl.session():
         _run2(logger, result_dir)
 
@@ -113,8 +111,7 @@ def _main():
 
     better_exceptions.MAX_LENGTH = 128
 
-    base_dir = pathlib.Path(os.path.realpath(__file__)).parent
-    os.chdir(str(base_dir))
+    base_dir = pathlib.Path(__file__).resolve().parent
     np.random.seed(1337)  # for reproducibility
 
     result_dir = base_dir.joinpath('results', pathlib.Path(__file__).stem)
