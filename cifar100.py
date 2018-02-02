@@ -68,8 +68,8 @@ def _run2(logger, result_dir: pathlib.Path):
     model.compile(opt, 'categorical_crossentropy', ['acc'])
 
     if hvd.rank() == 0:
-        model.summary(print_fn=logger.debug)
-        logger.debug('network depth: %d', tk.dl.count_network_depth(model))
+        model.summary(print_fn=logger.info)
+        logger.info('network depth: %d', tk.dl.count_network_depth(model))
         # keras.utils.plot_model(model, str(result_dir.joinpath('model.png')), show_shapes=True)
         # tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))
 
