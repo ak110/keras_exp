@@ -43,7 +43,7 @@ def _create_model(nb_classes: int, input_shape: tuple):
     x = _tran(x, 512, name='stage2_tran')
     x = _block(x, 512, 4, name='stage3_block')
     x = keras.layers.GlobalAveragePooling2D()(x)
-    x = builder.dense(nb_classes, activation='softmax', kernel_initializer='zeros', name='predictions')(x)
+    x = builder.dense(nb_classes, activation='softmax', name='predictions')(x)
 
     model = keras.models.Model(inputs=inp, outputs=x)
     return model
