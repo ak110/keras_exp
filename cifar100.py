@@ -12,6 +12,7 @@ BATCH_SIZE = 100
 MAX_EPOCH = 300
 
 
+@tk.log.trace()
 def _create_model(num_classes: int, input_shape: tuple):
     import keras
 
@@ -50,9 +51,12 @@ def _create_model(num_classes: int, input_shape: tuple):
     return model
 
 
-def _run2(logger, result_dir: pathlib.Path):
+@tk.log.trace()
+def _run(result_dir: pathlib.Path):
     import keras
     import keras.preprocessing.image
+
+    logger = tk.log.get(__name__)
 
     (X_train, y_train), (X_test, y_test) = keras.datasets.cifar100.load_data()
     input_shape = X_train.shape[1:]
@@ -133,11 +137,6 @@ def _run2(logger, result_dir: pathlib.Path):
         # tk.ml.plot_cm(cm, result_dir.joinpath('confusion_matrix.png'))
 
 
-def _run(logger, result_dir: pathlib.Path):
-    with tk.dl.session(gpu_options={'visible_device_list': str(hvd.local_rank())}):
-        _run2(logger, result_dir)
-
-
 def _main():
     hvd.init()
 
@@ -151,13 +150,13 @@ def _main():
     base_dir = pathlib.Path(__file__).resolve().parent
     result_dir = base_dir.joinpath('results', pathlib.Path(__file__).stem)
     result_dir.mkdir(parents=True, exist_ok=True)
-    logger = tk.create_tee_logger(result_dir.joinpath('output.log'), fmt=None)
+    logger = tk.log.get()
+    logger.addHandler(tk.log.stream_handler())
+    if hvd.rank() == 0:
+        logger.addHandler(tk.log.file_handler(result_dir / 'output.log', fmt=None))
 
-    start_time = time.time()
-    _run(logger, result_dir)
-    elapsed_time = time.time() - start_time
-
-    logger.info('Elapsed time = %d [s]', int(np.ceil(elapsed_time)))
+    with tk.dl.session(gpu_options={'visible_device_list': str(hvd.local_rank())}):
+        _run(result_dir)
 
 
 if __name__ == '__main__':
