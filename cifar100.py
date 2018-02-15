@@ -12,7 +12,7 @@ BATCH_SIZE = 100
 MAX_EPOCH = 300
 
 
-def _create_model(nb_classes: int, input_shape: tuple):
+def _create_model(num_classes: int, input_shape: tuple):
     import keras
 
     builder = tk.dl.Builder()
@@ -43,7 +43,8 @@ def _create_model(nb_classes: int, input_shape: tuple):
     x = _tran(x, 512, name='stage2_tran')
     x = _block(x, 512, 4, name='stage3_block')
     x = keras.layers.GlobalAveragePooling2D()(x)
-    x = builder.dense(nb_classes, activation='softmax', name='predictions')(x)
+    x = builder.dense(num_classes, activation='softmax',
+                      kernel_initializer='zeros', name='predictions')(x)
 
     model = keras.models.Model(inputs=inp, outputs=x)
     return model
@@ -53,11 +54,11 @@ def _run2(logger, result_dir: pathlib.Path):
     import keras
     import keras.preprocessing.image
 
-    input_shape = (32, 32, 3)
-    nb_classes = 100
     (X_train, y_train), (X_test, y_test) = keras.datasets.cifar100.load_data()
+    input_shape = X_train.shape[1:]
+    num_classes = len(np.unique(y_train))
 
-    model = _create_model(nb_classes, input_shape)
+    model = _create_model(num_classes, input_shape)
 
     # 学習率：
     # ・lr 0.5、batch size 256くらいが多いのでその辺を基準に
@@ -83,20 +84,28 @@ def _run2(logger, result_dir: pathlib.Path):
         # callbacks.append(tk.dl.learning_curve_plot_callback(result_dir.joinpath('history.{metric}.png'), 'loss'))
         # callbacks.append(tk.dl.learning_curve_plot_callback(result_dir.joinpath('history.{metric}.png'), 'acc'))
 
-    gen = tk.image.ImageDataGenerator(input_shape[:2], label_encoder=tk.ml.to_categorical(nb_classes))
-    gen.add(0.5, tk.image.FlipLR())
-    gen.add(0.5, tk.image.RandomErasing())
-    gen.add(0.25, tk.image.RandomBlur())
-    gen.add(0.25, tk.image.RandomBlur(partial=True))
-    gen.add(0.25, tk.image.RandomUnsharpMask())
-    gen.add(0.25, tk.image.RandomUnsharpMask(partial=True))
-    gen.add(0.25, tk.image.RandomMedian())
-    gen.add(0.25, tk.image.GaussianNoise())
-    gen.add(0.25, tk.image.GaussianNoise(partial=True))
-    gen.add(0.5, tk.image.RandomSaturation())
-    gen.add(0.5, tk.image.RandomBrightness())
-    gen.add(0.5, tk.image.RandomContrast())
-    gen.add(0.5, tk.image.RandomHue())
+    gen = tk.image.ImageDataGenerator()
+    gen.add(tk.image.RandomPadding(probability=1))
+    gen.add(tk.image.RandomRotate(probability=0.5))
+    gen.add(tk.image.RandomCrop(probability=1))
+    gen.add(tk.image.Resize(input_shape[:2]))
+    gen.add(tk.image.RandomFlipLR(probability=0.5))
+    gen.add(tk.image.RandomAugmentors([
+        tk.image.RandomBlur(probability=0.25),
+        tk.image.RandomBlur(probability=0.25, partial=True),
+        tk.image.RandomUnsharpMask(probability=0.25),
+        tk.image.RandomUnsharpMask(probability=0.25, partial=True),
+        tk.image.RandomMedian(probability=0.25),
+        tk.image.GaussianNoise(probability=0.25),
+        tk.image.GaussianNoise(probability=0.25, partial=True),
+        tk.image.RandomSaturation(probability=0.5),
+        tk.image.RandomBrightness(probability=0.5),
+        tk.image.RandomContrast(probability=0.5),
+        tk.image.RandomHue(probability=0.5),
+    ]))
+    gen.add(tk.image.RandomErasing(probability=0.5))
+    gen.add(tk.image.ProcessInput(tk.image.preprocess_input_abs1))
+    gen.add(tk.image.ProcessOutput(tk.ml.to_categorical(num_classes), batch_axis=True))
 
     model.fit_generator(
         gen.flow(X_train, y_train, batch_size=BATCH_SIZE, data_augmentation=True, shuffle=True),
