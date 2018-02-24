@@ -60,6 +60,8 @@ def _run(result_dir: pathlib.Path):
     logger = tk.log.get(__name__)
 
     (X_train, y_train), (X_test, y_test) = keras.datasets.cifar100.load_data()
+    y_train = np.squeeze(y_train)
+    y_test = np.squeeze(y_test)
     input_shape = X_train.shape[1:]
     num_classes = len(np.unique(y_train))
 
@@ -90,19 +92,17 @@ def _run(result_dir: pathlib.Path):
         # callbacks.append(tk.dl.learning_curve_plot_callback(result_dir.joinpath('history.{metric}.png'), 'acc'))
 
     gen = tk.image.ImageDataGenerator()
+    gen.add(tk.image.ProcessOutput(tk.ml.to_categorical(num_classes), batch_axis=True))
+    gen.add(tk.image.Mixup(probability=1, num_classes=num_classes))
     gen.add(tk.image.RandomPadding(probability=1))
     gen.add(tk.image.RandomRotate(probability=0.5))
     gen.add(tk.image.RandomCrop(probability=1))
     gen.add(tk.image.Resize(input_shape[:2]))
     gen.add(tk.image.RandomFlipLR(probability=0.5))
     gen.add(tk.image.RandomAugmentors([
-        tk.image.RandomBlur(probability=0.25),
-        tk.image.RandomBlur(probability=0.25, partial=True),
-        tk.image.RandomUnsharpMask(probability=0.25),
-        tk.image.RandomUnsharpMask(probability=0.25, partial=True),
-        tk.image.RandomMedian(probability=0.25),
-        tk.image.GaussianNoise(probability=0.25),
-        tk.image.GaussianNoise(probability=0.25, partial=True),
+        tk.image.RandomBlur(probability=0.5),
+        tk.image.RandomUnsharpMask(probability=0.5),
+        tk.image.GaussianNoise(probability=0.5),
         tk.image.RandomSaturation(probability=0.5),
         tk.image.RandomBrightness(probability=0.5),
         tk.image.RandomContrast(probability=0.5),
@@ -110,7 +110,6 @@ def _run(result_dir: pathlib.Path):
     ]))
     gen.add(tk.image.RandomErasing(probability=0.5))
     gen.add(tk.image.ProcessInput(tk.image.preprocess_input_abs1))
-    gen.add(tk.image.ProcessOutput(tk.ml.to_categorical(num_classes), batch_axis=True))
 
     model.fit_generator(
         gen.flow(X_train, y_train, batch_size=BATCH_SIZE, data_augmentation=True, shuffle=True),
