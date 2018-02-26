@@ -1,6 +1,6 @@
 _run 開始
 _create_model 開始
-_create_model 終了 (2.875[s])
+_create_model 終了 (2.884[s])
 __________________________________________________________________________________________________
 Layer (type)                    Output Shape         Param #     Connected to                     
 ==================================================================================================
@@ -351,7 +351,9 @@ Trainable params: 34,454,500
 Non-trainable params: 26,112
 __________________________________________________________________________________________________
 network depth: 44
-Test loss:     1.1306917893886566
-Test accuracy: 0.8078999996185303
-Test error:    0.19210000038146968
-_run 終了 (21800.748[s])
+FreezeBNCallback: freezed layers = 46
+FreezeBNCallback: unfreezed layers = 46
+Test loss:     1.1481459146738053
+Test accuracy: 0.8074999970197677
+Test error:    0.1925000029802323
+_run 終了 (18954.038[s])

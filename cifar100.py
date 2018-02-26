@@ -90,6 +90,7 @@ def _run(result_dir: pathlib.Path):
         callbacks.append(tk.dl.tsv_log_callback(result_dir / 'history.tsv'))
         # callbacks.append(tk.dl.learning_curve_plot_callback(result_dir.joinpath('history.{metric}.png'), 'loss'))
         # callbacks.append(tk.dl.learning_curve_plot_callback(result_dir.joinpath('history.{metric}.png'), 'acc'))
+    callbacks.append(tk.dl.freeze_bn_callback(0.95))
 
     gen = tk.image.ImageDataGenerator()
     gen.add(tk.image.ProcessOutput(tk.ml.to_categorical(num_classes), batch_axis=True))
