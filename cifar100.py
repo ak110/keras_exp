@@ -8,7 +8,7 @@ import numpy as np
 
 import pytoolkit as tk
 
-BATCH_SIZE = 100
+BATCH_SIZE = 64
 MAX_EPOCH = 300
 
 
@@ -82,7 +82,7 @@ def _run(result_dir: pathlib.Path):
         # tk.dl.plot_model_params(model, result_dir.joinpath('model.params.png'))
 
     callbacks = []
-    callbacks.append(tk.dl.learning_rate_callback(lr=lr, epochs=MAX_EPOCH))
+    callbacks.append(tk.dl.learning_rate_callback())
     callbacks.append(hvd.callbacks.BroadcastGlobalVariablesCallback(0))
     callbacks.append(hvd.callbacks.MetricAverageCallback())
     callbacks.append(hvd.callbacks.LearningRateWarmupCallback(warmup_epochs=5, verbose=1))
@@ -114,11 +114,11 @@ def _run(result_dir: pathlib.Path):
 
     model.fit_generator(
         gen.flow(X_train, y_train, batch_size=BATCH_SIZE, data_augmentation=True, shuffle=True),
-        steps_per_epoch=gen.steps_per_epoch(X_train.shape[0], BATCH_SIZE) // hvd.size(),
+        steps_per_epoch=len(X_train) // BATCH_SIZE // hvd.size(),
         epochs=MAX_EPOCH,
         verbose=1 if hvd.rank() == 0 else 0,
         validation_data=gen.flow(X_test, y_test, batch_size=BATCH_SIZE, shuffle=True),
-        validation_steps=gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE) // hvd.size(),  # * 3は省略
+        validation_steps=len(X_test) // BATCH_SIZE // hvd.size(),  # * 3は省略
         callbacks=callbacks)
 
     if hvd.rank() == 0:
@@ -131,23 +131,10 @@ def _run(result_dir: pathlib.Path):
         logger.info('Test accuracy: {}'.format(score[1]))
         logger.info('Test error:    {}'.format(1 - score[1]))
 
-        # pred = model.predict_generator(
-        #     gen.flow(X_test, batch_size=BATCH_SIZE),
-        #     gen.steps_per_epoch(X_test.shape[0], BATCH_SIZE))
-        # cm = sklearn.metrics.confusion_matrix(y_test, pred.argmax(axis=-1))
-        # tk.ml.plot_cm(cm, result_dir.joinpath('confusion_matrix.png'))
-
 
 def _main():
     hvd.init()
-
-    # import matplotlib as mpl
-    # mpl.use('Agg')
-    # import matplotlib.pyplot
-    # assert matplotlib.pyplot is not None  # libpngのエラー対策(怪)
-
     better_exceptions.MAX_LENGTH = 128
-
     base_dir = pathlib.Path(__file__).resolve().parent
     result_dir = base_dir.joinpath('results', pathlib.Path(__file__).stem)
     result_dir.mkdir(parents=True, exist_ok=True)
@@ -155,7 +142,6 @@ def _main():
     logger.addHandler(tk.log.stream_handler())
     if hvd.rank() == 0:
         logger.addHandler(tk.log.file_handler(result_dir / 'output.log', fmt=None))
-
     with tk.dl.session(gpu_options={'visible_device_list': str(hvd.local_rank())}):
         _run(result_dir)
 
