@@ -32,8 +32,7 @@ def _create_model(num_classes: int, input_shape: tuple):
         return x
 
     def _tran(x, filters, name):
-        x = builder.conv2d(filters, (1, 1), name='{}_conv'.format(name))(x)
-        x = keras.layers.MaxPooling2D()(x)
+        x = builder.conv2d(filters, (3, 3), strides=(2, 2), name='{}_tran'.format(name))(x)
         return x
 
     x = inp = keras.layers.Input(input_shape)
