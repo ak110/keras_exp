@@ -32,11 +32,11 @@ def _create_model(num_classes: int, input_shape: tuple):
         return x
 
     def _tran(x, filters, name):
-        x = builder.conv2d(filters, (3, 3), strides=(2, 2), name='{}_tran'.format(name))(x)
+        x = builder.conv2d(filters, (3, 3), strides=(2, 2), use_act=False, name='{}_tran'.format(name))(x)
         return x
 
     x = inp = keras.layers.Input(input_shape)
-    x = builder.conv2d(128, (3, 3), name='start')(x)
+    x = builder.conv2d(128, (3, 3), use_act=False, name='start')(x)
     x = _block(x, 128, 4, name='stage1_block')
     x = _tran(x, 256, name='stage1_tran')
     x = _block(x, 256, 12, name='stage2_block')
