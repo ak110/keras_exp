@@ -20,7 +20,9 @@ def _create_model(num_classes: int, input_shape: tuple):
     builder.set_default_l2()
     builder.conv_defaults['kernel_initializer'] = 'he_uniform'
 
-    def _block(x, filters, res_count, name):
+    def _block(x, filters, res_count, ds, name):
+        strides = (2, 2) if ds else (1, 1)
+        x = builder.conv2d(filters, (3, 3), strides=strides, use_act=False, name='{}_start'.format(name))(x)
         for res in range(res_count):
             sc = x
             x = builder.conv2d(filters, (3, 3), name='{}_r{}c1'.format(name, res))(x)
@@ -31,17 +33,10 @@ def _create_model(num_classes: int, input_shape: tuple):
         x = builder.act()(x)
         return x
 
-    def _tran(x, filters, name):
-        x = builder.conv2d(filters, (3, 3), strides=(2, 2), use_act=False, name='{}_tran'.format(name))(x)
-        return x
-
     x = inp = keras.layers.Input(input_shape)
-    x = builder.conv2d(128, (3, 3), use_act=False, name='start')(x)
-    x = _block(x, 128, 4, name='stage1_block')
-    x = _tran(x, 256, name='stage1_tran')
-    x = _block(x, 256, 12, name='stage2_block')
-    x = _tran(x, 512, name='stage2_tran')
-    x = _block(x, 512, 4, name='stage3_block')
+    x = _block(x, 128, 4, ds=False, name='stage1_block')
+    x = _block(x, 256, 12, ds=True, name='stage2_block')
+    x = _block(x, 512, 4, ds=True, name='stage3_block')
     x = keras.layers.Dropout(0.5)(x)
     x = keras.layers.GlobalAveragePooling2D()(x)
     x = builder.dense(num_classes, activation='softmax',
