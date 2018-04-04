@@ -1,4 +1,4 @@
-"""CIFAR100."""
+"""CIFAR."""
 import pathlib
 
 import horovod.keras as hvd
