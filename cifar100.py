@@ -78,10 +78,9 @@ def _run(result_dir: pathlib.Path):
 
     model.fit(X_train, y_train, validation_data=(X_test, y_test),
               epochs=MAX_EPOCH, callbacks=callbacks)
+    model.save(result_dir / 'model.h5')
     if hvd.rank() == 0:
-        model.save(result_dir / 'model.h5')
-
-        loss, acc = model.evaluate(X_test, y_test, batch_size=BATCH_SIZE)
+        loss, acc = model.evaluate(X_test, y_test)
         logger.info(f'Test loss:     {loss}')
         logger.info(f'Test accuracy: {acc}')
         logger.info(f'Test error:    {1 - acc}')
