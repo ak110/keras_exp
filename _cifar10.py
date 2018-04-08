@@ -64,9 +64,7 @@ def _run(result_dir: pathlib.Path):
     gen.add(tk.image.ProcessInput(tk.image.preprocess_input_abs1))
 
     model = tk.dl.models.Model(model, gen, BATCH_SIZE, use_horovod=True)
-
-    sgd_lr = 0.5 / 256
-    model.compile(sgd_lr=sgd_lr, loss='categorical_crossentropy', metrics=['acc'])
+    model.compile(sgd_lr=0.5 / 256, loss='categorical_crossentropy', metrics=['acc'])
     model.summary()
 
     callbacks = []

@@ -33,11 +33,11 @@ def _run(result_dir: pathlib.Path):
     with tk.log.trace_scope('create network'):
         builder = tk.dl.layers.Builder()
         x = inp = keras.layers.Input(input_shape)
-        for block, (filters, res_count) in enumerate([(128, 4), (256, 12), (512, 4)]):
+        for block, filters in enumerate([64, 128, 256, 512]):
             name = f'stage{block + 1}_block'
             strides = (1, 1) if block == 0 else (2, 2)
             x = builder.conv2d(filters, (3, 3), strides=strides, use_act=False, name=f'{name}_start')(x)
-            for res in range(res_count):
+            for res in range(6):
                 sc = x
                 x = builder.conv2d(filters, (3, 3), name=f'{name}_r{res}c1')(x)
                 x = keras.layers.Dropout(0.25)(x)
@@ -47,8 +47,7 @@ def _run(result_dir: pathlib.Path):
             x = builder.act()(x)
         x = keras.layers.Dropout(0.5)(x)
         x = keras.layers.GlobalAveragePooling2D()(x)
-        x = builder.dense(num_classes, activation='softmax',
-                          kernel_initializer='zeros', name='predictions')(x)
+        x = builder.dense(num_classes, activation='softmax', name='predictions')(x)
         model = keras.models.Model(inputs=inp, outputs=x)
 
     gen = tk.image.ImageDataGenerator()
@@ -64,9 +63,7 @@ def _run(result_dir: pathlib.Path):
     gen.add(tk.image.ProcessInput(tk.image.preprocess_input_abs1))
 
     model = tk.dl.models.Model(model, gen, BATCH_SIZE, use_horovod=True)
-
-    sgd_lr = 0.5 / 256
-    model.compile(sgd_lr=sgd_lr, loss='categorical_crossentropy', metrics=['acc'])
+    model.compile(sgd_lr=0.5 / 256, loss='categorical_crossentropy', metrics=['acc'])
     model.summary()
 
     callbacks = []
