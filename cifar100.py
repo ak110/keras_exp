@@ -37,11 +37,13 @@ def _run(result_dir: pathlib.Path):
             name = f'stage{block + 1}_block'
             strides = 1 if block == 0 else 2
             x = builder.conv2d(filters, 3, strides=strides, use_act=False, name=f'{name}_start')(x)
-            for res in range(6):
+            for res in range(4):
                 sc = x
-                x = builder.conv2d(filters, 3, name=f'{name}_r{res}c1')(x)
-                x = keras.layers.Dropout(0.25)(x)
-                x = builder.conv2d(filters, 3, use_act=False, name=f'{name}_r{res}c2')(x)
+                x = builder.conv2d(filters // 4, 3, name=f'{name}_r{res}c1')(x)
+                for d in range(8):
+                    t = builder.conv2d(filters // 8, 3, name=f'{name}_r{res}d{d}')(x)
+                    x = keras.layers.concatenate([x, t])
+                x = builder.conv2d(filters, 1, use_act=False, name=f'{name}_r{res}c2')(x)
                 x = keras.layers.add([sc, x])
             x = builder.bn()(x)
             x = builder.act()(x)
