@@ -33,15 +33,15 @@ def _run(result_dir: pathlib.Path):
     with tk.log.trace_scope('create network'):
         builder = tk.dl.layers.Builder()
         x = inp = keras.layers.Input(input_shape)
-        for block, filters in enumerate([64, 128, 256, 512]):
+        for block, filters in enumerate([128, 256, 512]):
             name = f'stage{block + 1}_block'
-            strides = (1, 1) if block == 0 else (2, 2)
-            x = builder.conv2d(filters, (3, 3), strides=strides, use_act=False, name=f'{name}_start')(x)
+            strides = 1 if block == 0 else 2
+            x = builder.conv2d(filters, 3, strides=strides, use_act=False, name=f'{name}_start')(x)
             for res in range(6):
                 sc = x
-                x = builder.conv2d(filters, (3, 3), name=f'{name}_r{res}c1')(x)
+                x = builder.conv2d(filters, 3, name=f'{name}_r{res}c1')(x)
                 x = keras.layers.Dropout(0.25)(x)
-                x = builder.conv2d(filters, (3, 3), use_act=False, name=f'{name}_r{res}c2')(x)
+                x = builder.conv2d(filters, 3, use_act=False, name=f'{name}_r{res}c2')(x)
                 x = keras.layers.add([sc, x])
             x = builder.bn()(x)
             x = builder.act()(x)
