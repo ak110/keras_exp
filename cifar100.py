@@ -1,7 +1,6 @@
 """CIFAR."""
 import pathlib
 
-import horovod.keras as hvd
 import numpy as np
 
 import pytoolkit as tk
@@ -15,7 +14,7 @@ def _main():
     result_dir = base_dir / 'results' / pathlib.Path(__file__).stem
     result_dir.mkdir(parents=True, exist_ok=True)
     with tk.dl.session(use_horovod=True):
-        tk.log.init(result_dir / 'output.log' if hvd.rank() == 0 else None, file_fmt=None)
+        tk.log.init(result_dir / 'output.log' if tk.dl.hvd.is_master() else None, file_fmt=None)
         _run(result_dir)
 
 
@@ -64,21 +63,21 @@ def _run(result_dir: pathlib.Path):
     gen.add(tk.image.RandomErasing(probability=0.5))
     gen.add(tk.image.ProcessInput(tk.image.preprocess_input_abs1))
 
-    model = tk.dl.models.Model(model, gen, BATCH_SIZE, use_horovod=True)
+    model = tk.dl.models.Model(model, gen, BATCH_SIZE)
     model.compile(sgd_lr=0.5 / 256, loss='categorical_crossentropy', metrics=['acc'])
     model.summary()
 
     callbacks = []
     callbacks.append(tk.dl.callbacks.learning_rate())
     callbacks.extend(model.horovod_callbacks())
-    if hvd.rank() == 0:
+    if tk.dl.hvd.is_master():
         callbacks.append(tk.dl.callbacks.tsv_logger(result_dir / 'history.tsv'))
     callbacks.append(tk.dl.callbacks.freeze_bn(0.95))
 
     model.fit(X_train, y_train, validation_data=(X_test, y_test),
               epochs=MAX_EPOCH, callbacks=callbacks)
     model.save(result_dir / 'model.h5')
-    if hvd.rank() == 0:
+    if tk.dl.hvd.is_master():
         loss, acc = model.evaluate(X_test, y_test)
         logger.info(f'Test loss:     {loss}')
         logger.info(f'Test accuracy: {acc}')
