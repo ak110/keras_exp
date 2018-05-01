@@ -14,7 +14,7 @@ def _main():
     result_dir = base_dir / 'results' / pathlib.Path(__file__).stem
     result_dir.mkdir(parents=True, exist_ok=True)
     with tk.dl.session(use_horovod=True):
-        tk.log.init(result_dir / 'output.log' if tk.dl.hvd.is_master() else None, file_fmt=None)
+        tk.log.init(result_dir / 'output.log', file_fmt=None)
         _run(result_dir)
 
 
@@ -70,8 +70,7 @@ def _run(result_dir: pathlib.Path):
     callbacks = []
     callbacks.append(tk.dl.callbacks.learning_rate())
     callbacks.extend(model.horovod_callbacks())
-    if tk.dl.hvd.is_master():
-        callbacks.append(tk.dl.callbacks.tsv_logger(result_dir / 'history.tsv'))
+    callbacks.append(tk.dl.callbacks.tsv_logger(result_dir / 'history.tsv'))
     callbacks.append(tk.dl.callbacks.freeze_bn(0.95))
 
     model.fit(X_train, y_train, validation_data=(X_test, y_test),
