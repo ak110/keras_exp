@@ -43,7 +43,7 @@ def _run(result_dir: pathlib.Path):
                     t = builder.conv2d(filters // 8, name=f'{name}_r{res}_d{d}')(x)
                     x = keras.layers.concatenate([x, t])
                 x = builder.conv2d(filters, 1, use_act=False, name=f'{name}_r{res}_c2')(x)
-                x = keras.layers.add([sc, x])
+                x = keras.layers.add([sc, x], name=f'{name}_r{res}_add')
             x = builder.bn_act(name=f'{name}')(x)
         x = keras.layers.Dropout(0.5, name='dropout')(x)
         x = keras.layers.GlobalAveragePooling2D(name='pooling')(x)
