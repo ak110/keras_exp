@@ -35,19 +35,18 @@ def _run(result_dir: pathlib.Path):
         for block, filters in enumerate([128, 256, 512]):
             name = f'stage{block + 1}_block'
             strides = 1 if block == 0 else 2
-            x = builder.conv2d(filters, 3, strides=strides, use_act=False, name=f'{name}_start')(x)
+            x = builder.conv2d(filters, strides=strides, use_act=False, name=f'{name}_start')(x)
             for res in range(4):
                 sc = x
-                x = builder.conv2d(filters // 4, 3, name=f'{name}_r{res}c1')(x)
+                x = builder.conv2d(filters // 4, name=f'{name}_r{res}_c1')(x)
                 for d in range(8):
-                    t = builder.conv2d(filters // 8, 3, name=f'{name}_r{res}d{d}')(x)
+                    t = builder.conv2d(filters // 8, name=f'{name}_r{res}_d{d}')(x)
                     x = keras.layers.concatenate([x, t])
-                x = builder.conv2d(filters, 1, use_act=False, name=f'{name}_r{res}c2')(x)
+                x = builder.conv2d(filters, 1, use_act=False, name=f'{name}_r{res}_c2')(x)
                 x = keras.layers.add([sc, x])
-            x = builder.bn()(x)
-            x = builder.act()(x)
-        x = keras.layers.Dropout(0.5)(x)
-        x = keras.layers.GlobalAveragePooling2D()(x)
+            x = builder.bn_act(name=f'{name}')(x)
+        x = keras.layers.Dropout(0.5, name='dropout')(x)
+        x = keras.layers.GlobalAveragePooling2D(name='pooling')(x)
         x = builder.dense(num_classes, activation='softmax', name='predictions')(x)
         model = keras.models.Model(inputs=inp, outputs=x)
 
