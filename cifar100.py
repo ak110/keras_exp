@@ -5,7 +5,7 @@ import numpy as np
 
 import pytoolkit as tk
 
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 MAX_EPOCH = 300
 
 
@@ -34,8 +34,9 @@ def _run(result_dir: pathlib.Path):
         x = inp = keras.layers.Input(input_shape)
         for block, filters in enumerate([128, 256, 512]):
             name = f'stage{block + 1}_block'
-            strides = 1 if block == 0 else 2
-            x = builder.conv2d(filters, strides=strides, use_act=False, name=f'{name}_start')(x)
+            x = builder.conv2d(filters, use_act=False, name=f'{name}_start')(x)
+            if block >= 1:
+                x = tk.dl.layers.parallel_grid_pooling_2d()(name=f'{name}_pgp')(x)
             for res in range(4):
                 sc = x
                 x = builder.conv2d(filters // 4, name=f'{name}_r{res}_c1')(x)
@@ -43,11 +44,12 @@ def _run(result_dir: pathlib.Path):
                     t = builder.conv2d(filters // 8, name=f'{name}_r{res}_d{d}')(x)
                     x = keras.layers.concatenate([x, t])
                 x = builder.conv2d(filters, 1, use_act=False, name=f'{name}_r{res}_c2')(x)
-                x = keras.layers.add([sc, x])
+                x = keras.layers.add([sc, x], name=f'{name}_r{res}_add')
             x = builder.bn_act(name=f'{name}')(x)
         x = keras.layers.Dropout(0.5, name='dropout')(x)
         x = keras.layers.GlobalAveragePooling2D(name='pooling')(x)
         x = builder.dense(num_classes, activation='softmax', name='predictions')(x)
+        x = tk.dl.layers.parallel_grid_gather()(4 * 4, name='pgg')(x)
         model = keras.models.Model(inputs=inp, outputs=x)
 
     gen = tk.image.ImageDataGenerator()
