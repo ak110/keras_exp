@@ -1,9 +1,9 @@
 _run 開始
 create network 開始
-create network 終了 (10.691[s])
+create network 終了 (10.653[s])
 compile 開始
 lr = 5.00e-01
-compile 終了 (4.313[s])
+compile 終了 (4.327[s])
 __________________________________________________________________________________________________
 Layer (type)                    Output Shape         Param #     Connected to                     
 ==================================================================================================
@@ -1069,12 +1069,12 @@ Epoch 150: Learning rate 5.0e-01 -> 5.0e-02
 Epoch 225: Learning rate 5.0e-02 -> 5.0e-03
 Epoch 285: Freeze BNs (layers = 126)
 Epoch 300: Unfreeze BNs (layers = 126)
-fit 終了 (20516.806[s])
+fit 終了 (20100.358[s])
 save 開始
-save 終了 (61.594[s])
+save 終了 (57.061[s])
 evaluate 開始
-evaluate 終了 (17.623[s])
-Test loss:     1.144
-Test accuracy: 0.809
-Test error:    0.191
-_run 終了 (20612.042[s])
+evaluate 終了 (17.245[s])
+Test loss:     1.110
+Test accuracy: 0.821
+Test error:    0.179
+_run 終了 (20191.014[s])
