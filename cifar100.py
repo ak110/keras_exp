@@ -41,7 +41,7 @@ def _run(result_dir: pathlib.Path):
                 x = builder.conv2d(filters // 4, name=f'{name}_r{res}_c1')(x)
                 for d in range(8):
                     t = builder.conv2d(filters // 8, name=f'{name}_r{res}_d{d}')(x)
-                    x = keras.layers.concatenate([x, t])
+                    x = keras.layers.concatenate([x, t], name=f'{name}_r{res}_d{d}_cat')
                 x = builder.conv2d(filters, 1, use_act=False, name=f'{name}_r{res}_c2')(x)
                 x = keras.layers.add([sc, x], name=f'{name}_r{res}_add')
             x = builder.bn_act(name=f'{name}')(x)
@@ -51,7 +51,7 @@ def _run(result_dir: pathlib.Path):
         model = keras.models.Model(inputs=inp, outputs=x)
 
     gen = tk.image.ImageDataGenerator()
-    gen.add(tk.image.ProcessOutput(tk.ml.to_categorical(num_classes), batch_axis=True))
+    gen.add(tk.generator.ProcessOutput(tk.ml.to_categorical(num_classes), batch_axis=True))
     gen.add(tk.image.Mixup(probability=1, num_classes=num_classes))
     gen.add(tk.image.RandomPadding(probability=1))
     gen.add(tk.image.RandomRotate(probability=0.5))
@@ -60,7 +60,7 @@ def _run(result_dir: pathlib.Path):
     gen.add(tk.image.RandomFlipLR(probability=0.5))
     gen.add(tk.image.RandomColorAugmentors(probability=0.5))
     gen.add(tk.image.RandomErasing(probability=0.5))
-    gen.add(tk.image.ProcessInput(tk.image.preprocess_input_abs1))
+    gen.add(tk.generator.ProcessInput(tk.image.preprocess_input_abs1))
 
     model = tk.dl.models.Model(model, gen, BATCH_SIZE)
     model.compile(sgd_lr=0.5 / 256, loss='categorical_crossentropy', metrics=['acc'])
@@ -77,9 +77,9 @@ def _run(result_dir: pathlib.Path):
     model.save(result_dir / 'model.h5')
     if tk.dl.hvd.is_master():
         loss, acc = model.evaluate(X_test, y_test)
-        logger.info(f'Test loss:     {loss}')
-        logger.info(f'Test accuracy: {acc}')
-        logger.info(f'Test error:    {1 - acc}')
+        logger.info(f'Test loss:     {loss:.3f}')
+        logger.info(f'Test accuracy: {acc:.3f}')
+        logger.info(f'Test error:    {1 - acc:.3f}')
 
 
 if __name__ == '__main__':
